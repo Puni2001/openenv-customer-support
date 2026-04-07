@@ -1,0 +1,26 @@
+name: customer-support-env
+version: 1.0.0
+description: Customer support ticket resolution environment
+
+tasks:
+  - name: easy
+    description: Categorize incoming support tickets
+    
+  - name: medium
+    description: Categorize and prioritize tickets
+    
+  - name: hard
+    description: Full ticket resolution
+
+environment:
+  class: src.customer_support_env.CustomerSupportEnv
+  init_params:
+    task_level: ${TASK_LEVEL}
+
+observation_space:
+  type: pydantic
+  model: src.customer_support_env.Observation
+
+action_space:
+  type: pydantic
+  model: src.customer_support_env.Action
