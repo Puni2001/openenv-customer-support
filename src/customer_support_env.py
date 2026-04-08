@@ -41,7 +41,7 @@ class Ticket(BaseModel):
 
 class Observation(BaseModel):
     """What the agent sees at each step"""
-    current_ticket: Ticket
+    current_ticket: Optional[Ticket] = None
     tickets_remaining: int
     tickets_handled: int
     current_sla_status: str  # "ok", "warning", "breached"
@@ -72,7 +72,7 @@ class TaskConfig:
             "description": "Correctly categorize incoming support tickets",
             "max_steps": 5,
             "success_criteria": "All tickets correctly categorized",
-            "tasks_per_episode": 3
+            "tasks_per_episode": 2
         }
     
     @staticmethod
@@ -82,7 +82,7 @@ class TaskConfig:
             "description": "Categorize tickets AND set appropriate priority based on SLA",
             "max_steps": 10,
             "success_criteria": "Correct category + priority meets SLA constraints",
-            "tasks_per_episode": 5
+            "tasks_per_episode": 2
         }
     
     @staticmethod
@@ -92,7 +92,7 @@ class TaskConfig:
             "description": "Resolve tickets using knowledge base, escalate when needed",
             "max_steps": 20,
             "success_criteria": "Tickets resolved correctly or appropriately escalated",
-            "tasks_per_episode": 7
+            "tasks_per_episode": 3
         }
 
 # ============================================
@@ -142,42 +142,62 @@ class CustomerSupportEnv:
                 "App crashes when uploading files",
                 "Login page returns 500 error",
                 "Slow performance in dashboard",
-                "Cannot sync data across devices"
+                "Cannot sync data across devices",
+                "API endpoint returning 404 for valid requests",
+                "Database connection timeout during peak hours",
+                "CSS styles not loading on Safari mobile"
             ],
             TicketCategory.BILLING: [
                 "Unexpected charge on my credit card",
                 "Refund not processed after cancellation",
                 "Invoice missing from account",
-                "Discount code not applied"
+                "Discount code not applied",
+                "Double billed for last month subscription",
+                "Currency conversion rate seems incorrect",
+                "Payment method declined but funds available"
             ],
             TicketCategory.ACCOUNT: [
                 "Cannot reset password",
                 "Account locked after multiple attempts",
                 "Email verification not received",
-                "Cannot update profile information"
+                "Cannot update profile information",
+                "Delete account request not processing",
+                "Two-factor authentication code not reaching phone",
+                "Profile picture update keeps failing"
             ],
             TicketCategory.FEATURE_REQUEST: [
                 "Need dark mode feature",
                 "Export to CSV functionality",
                 "API rate limits too low",
-                "Mobile app missing features"
+                "Mobile app missing features",
+                "Integration with Slack/Microsoft Teams",
+                "Bulk edit functionality in ticket dashboard",
+                "Custom fields for user profiles"
             ],
             TicketCategory.COMPLAINT: [
                 "Very disappointed with support response time",
                 "Product not working as advertised",
                 "Unhelpful previous agent",
-                "Worst experience ever"
+                "Worst experience ever",
+                "Hidden fees not mentioned in pricing page",
+                "Security vulnerability concerns ignored",
+                "Language barriers with current support staff"
             ]
         }
         
         # Set sentiment based on category and random factors
         if sentiment is None:
             if category == TicketCategory.COMPLAINT:
-                sentiment = random.uniform(-1.0, -0.5)
+                sentiment = random.uniform(-1.0, -0.6)
             elif category == TicketCategory.BILLING:
-                sentiment = random.uniform(-0.5, 0.2)
+                sentiment = random.uniform(-0.6, 0.1)
+            elif category == TicketCategory.TECHNICAL:
+                sentiment = random.uniform(-0.4, 0.4)
             else:
-                sentiment = random.uniform(-0.2, 0.8)
+                sentiment = random.uniform(0.0, 0.8)
+        
+        # Initially set default priority based on category and sentiment
+        priority = self._calculate_expected_priority(category, sentiment)
         
         # Calculate SLA deadline (urgent = 2hr, high = 4hr, medium = 24hr, low = 48hr)
         base_hours = {
@@ -187,23 +207,14 @@ class CustomerSupportEnv:
             Priority.LOW: 48
         }
         
-        # Initially set default priority based on category
-        default_priority = {
-            TicketCategory.COMPLAINT: Priority.HIGH,
-            TicketCategory.BILLING: Priority.MEDIUM,
-            TicketCategory.TECHNICAL: Priority.MEDIUM,
-            TicketCategory.ACCOUNT: Priority.MEDIUM,
-            TicketCategory.FEATURE_REQUEST: Priority.LOW
-        }[category]
-        
-        sla_deadline = datetime.now() + timedelta(hours=base_hours[default_priority])
+        sla_deadline = datetime.now() + timedelta(hours=base_hours[priority])
         
         return Ticket(
             customer_id=f"cust_{random.randint(1000, 9999)}",
             category=category,
             description=random.choice(descriptions[category]),
             sentiment=sentiment,
-            priority=default_priority,
+            priority=priority,
             sla_deadline=sla_deadline
         )
     
@@ -306,18 +317,25 @@ class CustomerSupportEnv:
         
         return total_reward, reward_breakdown
     
-    def _get_expected_priority(self, ticket: Ticket) -> Priority:
-        """Determine expected priority based on ticket attributes"""
-        if ticket.sentiment < -0.7:
+    def _calculate_expected_priority(self, category: TicketCategory, sentiment: float) -> Priority:
+        """Determine expected priority based on category and sentiment"""
+        if sentiment < -0.8:
             return Priority.URGENT
-        elif ticket.sentiment < -0.3:
+        if sentiment < -0.4:
             return Priority.HIGH
-        elif ticket.category == TicketCategory.COMPLAINT:
+        if category == TicketCategory.COMPLAINT and sentiment < -0.2:
             return Priority.HIGH
-        elif ticket.category == TicketCategory.BILLING and ticket.sentiment < -0.2:
+        if category == TicketCategory.BILLING and sentiment < 0:
             return Priority.HIGH
-        else:
-            return Priority.MEDIUM
+        if category == TicketCategory.TECHNICAL and sentiment < -0.2:
+            return Priority.HIGH
+        if category == TicketCategory.FEATURE_REQUEST:
+            return Priority.LOW
+        return Priority.MEDIUM
+
+    def _get_expected_priority(self, ticket: Ticket) -> Priority:
+        """Legacy wrapper for backward compatibility"""
+        return self._calculate_expected_priority(ticket.category, ticket.sentiment)
     
     def reset(self) -> Observation:
         """Reset environment for new episode"""
@@ -371,7 +389,13 @@ class CustomerSupportEnv:
             self.current_ticket_idx += 1
             
         elif action.action_type in ["categorize", "prioritize", "request_info"]:
-            # Non-terminal actions - stay on same ticket
+            # Progress logic for simpler task levels
+            if self.task_level == "easy" and action.action_type == "categorize":
+                self.tickets_handled += 1
+                self.current_ticket_idx += 1
+            elif self.task_level == "medium" and action.action_type == "prioritize":
+                self.tickets_handled += 1
+                self.current_ticket_idx += 1
             pass
         
         # Check if episode is complete

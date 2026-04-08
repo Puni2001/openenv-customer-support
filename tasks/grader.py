@@ -105,14 +105,22 @@ class TaskGrader:
     
     @staticmethod
     def _get_expected_priority(ticket: Ticket) -> Priority:
-        """Determine expected priority based on ticket attributes"""
-        if ticket.sentiment < -0.7:
+        """Determine expected priority based on category and sentiment.
+        Matches the logic in CustomerSupportEnv._calculate_expected_priority.
+        """
+        sentiment = ticket.sentiment
+        category = ticket.category
+        
+        if sentiment < -0.8:
             return Priority.URGENT
-        elif ticket.sentiment < -0.3:
+        if sentiment < -0.4:
             return Priority.HIGH
-        elif ticket.category == TicketCategory.COMPLAINT:
+        if category == TicketCategory.COMPLAINT and sentiment < -0.2:
             return Priority.HIGH
-        elif ticket.category == TicketCategory.BILLING and ticket.sentiment < -0.2:
+        if category == TicketCategory.BILLING and sentiment < 0:
             return Priority.HIGH
-        else:
-            return Priority.MEDIUM
+        if category == TicketCategory.TECHNICAL and sentiment < -0.2:
+            return Priority.HIGH
+        if category == TicketCategory.FEATURE_REQUEST:
+            return Priority.LOW
+        return Priority.MEDIUM

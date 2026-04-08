@@ -6,7 +6,7 @@ import requests
 
 # Test reset endpoint
 response = requests.post(
-    "http://localhost:5000/reset",
+    "http://localhost:7860/reset",
     json={"task_level": "easy"},
     timeout=5
 )
@@ -19,7 +19,7 @@ else:
     print("✗ API test failed")
 
 # Test health
-response = requests.get("http://localhost:5000/health", timeout=5)
+response = requests.get("http://localhost:7860/health", timeout=5)
 if response.status_code == 200:
     print("✓ Health check works!")
 else:

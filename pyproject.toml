@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openenv-customer-support"
+version = "1.0.0"
+description = "Customer support ticket resolution environment for OpenEnv"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Punith S", email = "punithpunith2001@gmail.com"}
+]
+
+dependencies = [
+    "openenv-core>=0.2.0",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "pydantic>=2.0.0",
+    "numpy>=1.24.0",
+    "openai>=1.0.0",
+]
+
+[project.scripts]
+# This is the critical entry point - exactly what openenv expects
+openenv-server = "server.app:main"
+server = "server.app:main"
+app = "server.app:main"
+
+[tool.setuptools]
+packages = ["src", "server"]
+package-dir = {"" = "."}
+
+[tool.setuptools.package-data]
+src = ["*.py"]
+server = ["*.py"]
+
+[project.urls]
+"Homepage" = "https://github.com/punithpunith2001/openenv-customer-support"
