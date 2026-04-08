@@ -74,7 +74,7 @@ async def health_check():
     return {"status": "healthy", "service": "customer-support-env"}
 
 @app.post("/reset")
-async def reset_environment(request: ResetRequest):
+async def reset_environment(request: ResetRequest = ResetRequest()):
     """Reset environment and return initial observation"""
     global env, current_task
     
