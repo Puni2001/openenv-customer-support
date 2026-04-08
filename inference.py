@@ -58,13 +58,16 @@ class SupportAgent:
         if not ticket:
             return Action(action_type="request_info", value="No tickets")
         
-        system = textwrap.dedent(f"""
-            Expert support agent. Respond in valid JSON only:
-            {{ "action_type": "categorize|prioritize|resolve|escalate", "value": "...", "reasoning": "..." }}
-            Easy: categorize (technical|billing|account|feature_request|complaint).
-            Medium: prioritize (low|medium|high|urgent).
-            Hard: resolve or escalate.
-        """).strip()
+        system = f"""
+        Expert customer support agent. Respond ONLY in valid JSON.
+        
+        STRICT RULES FOR LEVEL: {task_level.upper()}
+        - If Level is EASY: action_type MUST be "categorize" (technical|billing|account|feature_request|complaint).
+        - If Level is MEDIUM: action_type MUST be "prioritize" (low|medium|high|urgent).
+        - If Level is HARD: action_type MUST be "resolve" or "escalate".
+        
+        Format: {{ "action_type": "...", "value": "...", "reasoning": "..." }}
+        """.strip()
         user = f"Ticket: {ticket.description}. Level: {task_level}."
 
         for attempt in range(3):
