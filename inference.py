@@ -111,6 +111,8 @@ class SupportAgent:
                     continue
                 if attempt == 2: return Action(action_type="request_info", value=str(e)[:50])
                 time.sleep(1)
+        
+        return Action(action_type="request_info", value="Max retries reached")
 
 def run_task(task_level: str):
     log_start(task_level, BENCHMARK, MODEL_NAME)
