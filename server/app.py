@@ -246,7 +246,7 @@ async def get_state(x_session_id: Optional[str] = Header(default=None)):
     return {"state": env.state()}
 
 @app.get("/demo")
-async def demo_episode(task_level: str = "hard", use_llm: bool = False):
+async def demo_episode(task_level: str = "hard", use_llm: bool = False, agent_type: str = "rule_based"):
     """
     Run a simulated episode with a rule-based agent (no LLM needed).
     Used by the dashboard UI to show live step-by-step progress.
@@ -262,15 +262,23 @@ async def demo_episode(task_level: str = "hard", use_llm: bool = False):
     steps = []
 
     agent_live = None
+    model_name = None
     if use_llm:
         import os
         from inference import SupportAgent
         api_base = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-        model = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+        base_model = os.getenv("BASE_MODEL_NAME", os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct"))
+        trained_model = os.getenv("TRAINED_MODEL_NAME", base_model)
+        if agent_type == "base_llm":
+            model_name = base_model
+        elif agent_type == "rl_llm":
+            model_name = trained_model
+        else:
+            model_name = base_model
         hf_token = os.getenv("HF_TOKEN")
         if not hf_token:
             raise HTTPException(500, "HF_TOKEN not found in .env. Cannot use live LLM.")
-        agent_live = SupportAgent(model_name=model, api_key=hf_token, base_url=api_base)
+        agent_live = SupportAgent(model_name=model_name, api_key=hf_token, base_url=api_base)
 
     while not env.done:
         t = obs.current_ticket
@@ -334,6 +342,8 @@ async def demo_episode(task_level: str = "hard", use_llm: bool = False):
 
     return {
         "task_level": task_level,
+        "agent_type": agent_type,
+        "model_name": model_name,
         "total_tickets": len(env.tickets),
         "total_reward": round(sum(s["reward"] for s in steps), 4),
         "steps": steps,

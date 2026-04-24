@@ -17,7 +17,11 @@ import argparse
 import json
 import os
 import random
+from datetime import datetime, timedelta
 from typing import List, Dict
+
+import numpy as np
+import torch
 
 # ── Reward function (environment-grounded) ───────────────────
 
@@ -26,12 +30,12 @@ def make_reward_fn(task_level: str):
     Returns a reward function compatible with TRL's GRPOTrainer.
     Each completion is scored by the environment's grader.
     """
-    from src.customer_support_env import CustomerSupportEnv, Action
-    from tasks.grader import TaskGrader
+    from src.customer_support_env import CustomerSupportEnv, Action, Ticket, TicketCategory, Priority
 
     def reward_fn(completions: List[str], prompts: List[str] = None, **kwargs) -> List[float]:
         rewards = []
-        for completion in completions:
+        ticket_payloads = kwargs.get("ticket_payload", [])
+        for idx, completion in enumerate(completions):
             try:
                 # Parse LLM output as action JSON
                 text = completion.strip()
@@ -48,10 +52,24 @@ def make_reward_fn(task_level: str):
                     reasoning=str(data.get("reasoning", ""))
                 )
 
-                # Run one environment step to get reward
+                # Score against the same ticket context used in the prompt.
+                payload = ticket_payloads[idx] if idx < len(ticket_payloads) else {}
+                if isinstance(payload, str):
+                    payload = json.loads(payload)
+                ticket = Ticket(
+                    customer_id=payload.get("customer_id", "train_customer"),
+                    category=TicketCategory(payload.get("category", "technical")),
+                    description=payload.get("description", "Training sample ticket"),
+                    sentiment=float(payload.get("sentiment", 0.0)),
+                    priority=Priority(payload.get("priority", "medium")),
+                    created_at=datetime.now(),
+                    sla_deadline=datetime.now() + timedelta(hours=max(1, int(payload.get("sla_hours", 4)))),
+                    previous_contacts=int(payload.get("previous_contacts", 0)),
+                    is_vip=bool(payload.get("is_vip", False)),
+                )
+
                 env = CustomerSupportEnv(task_level=task_level)
-                env.reset()
-                _, reward, _, _ = env.step(action)
+                reward, _ = env._calculate_reward(action, ticket)
                 rewards.append(float(reward))
 
             except Exception:
@@ -89,10 +107,9 @@ def generate_dataset(task_level: str, n_samples: int = 500) -> List[Dict]:
         kb = KNOWLEDGE_BASE.get(ticket.category.value, {})
         steps = ", ".join(kb.get("steps", []))
 
+        # Do not leak ground-truth labels like Category/Priority in the prompt.
         user = f"""Ticket: {ticket.description}
-Category: {ticket.category.value}
 Sentiment: {ticket.sentiment:.2f}
-Priority: {ticket.priority.value}
 SLA Status: {obs.current_sla_status}
 VIP: {ticket.is_vip}
 Previous Contacts: {ticket.previous_contacts}
@@ -103,7 +120,17 @@ KB Steps: {steps}"""
                 {"role": "system", "content": system},
                 {"role": "user", "content": user}
             ],
-            "task_level": task_level
+            "task_level": task_level,
+            "ticket_payload": json.dumps({
+                "customer_id": ticket.customer_id,
+                "category": ticket.category.value,
+                "description": ticket.description,
+                "sentiment": ticket.sentiment,
+                "priority": ticket.priority.value,
+                "sla_hours": max(1, int((ticket.sla_deadline - ticket.created_at).total_seconds() / 3600)),
+                "is_vip": ticket.is_vip,
+                "previous_contacts": ticket.previous_contacts,
+            })
         })
 
     return samples
@@ -123,6 +150,12 @@ def train(args):
     except ImportError:
         print("Install training deps: pip install trl transformers torch unsloth")
         return
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
 
     print(f"Loading model: {args.model} (Unsloth optimized: {USE_UNSLOTH})")
     
@@ -170,6 +203,7 @@ def train(args):
             logging_steps=10,
             save_steps=100,
             report_to="none",
+            seed=args.seed,
         )
 
         trainer = GRPOTrainer(
@@ -205,6 +239,8 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--samples", type=int, default=500,
                         help="Training samples per task level")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="Global seed for deterministic runs")
     parser.add_argument("--push-to-hub", action="store_true")
     parser.add_argument("--hub-repo", default="punith2001/openenv-customer-support-model")
     args = parser.parse_args()

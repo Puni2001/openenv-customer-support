@@ -64,6 +64,8 @@ pip install -r requirements.txt
 
 # 2. Add your HF token to .env
 echo 'HF_TOKEN=hf_your_token_here' >> .env
+echo 'BASE_MODEL_NAME=Qwen/Qwen2.5-72B-Instruct' >> .env
+echo 'TRAINED_MODEL_NAME=punith2001/openenv-customer-support-model' >> .env
 
 # 3. Validate the environment
 openenv validate .
@@ -123,7 +125,20 @@ python train.py --task hard --model Qwen/Qwen2.5-0.5B-Instruct --epochs 3
 python train.py --push-to-hub --hub-repo your-username/ai-support-envoy-model
 ```
 
-See `train_colab.ipynb` for the full Colab notebook with reward curves.
+See `train_colab.ipynb` for the full Colab notebook with reward curves and measured baseline-vs-trained outputs.
+
+### Reproducible Evaluation (Baseline vs Trained)
+
+```bash
+python evaluate_models.py \
+  --base-model Qwen/Qwen2.5-72B-Instruct \
+  --trained-model punith2001/openenv-customer-support-model \
+  --tasks easy,medium,hard \
+  --seeds 41,42,43,44,45 \
+  --output results/baseline_vs_trained.json
+```
+
+This writes machine-readable metrics to `results/baseline_vs_trained.json` (no placeholders).
 
 ---
 
@@ -171,6 +186,7 @@ ai-support-envoy/
 │   └── static/                   # Static directory for saved runs & images
 ├── inference.py                  # LLM agent + baseline runner
 ├── train.py                      # GRPO training script (TRL)
+├── evaluate_models.py            # Reproducible baseline-vs-trained evaluation
 ├── train_colab.ipynb             # Colab notebook with reward curves
 ├── openenv.yaml                  # OpenEnv config
 ├── Dockerfile                    # HF Space deployment

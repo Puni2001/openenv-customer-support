@@ -207,6 +207,7 @@ class CustomerSupportEnv:
         self.current_ticket_idx = 0
         self.tickets_handled = 0
         self.recent_actions: List[str] = []
+        self.last_triage_decision: Optional[str] = None
         self.done = False
         self.episode_rewards: List[float] = []
 
@@ -528,6 +529,7 @@ class CustomerSupportEnv:
         self.current_ticket_idx = 0
         self.tickets_handled = 0
         self.recent_actions = []
+        self.last_triage_decision = None
         self.done = False
         self.episode_rewards = []
 
@@ -550,6 +552,8 @@ class CustomerSupportEnv:
         reward, breakdown = self._calculate_reward(action, current)
         self.episode_rewards.append(reward)
         self.recent_actions.append(f"{action.action_type}:{action.value}")
+        if self.task_level == "multi_agent_triage" and action.action_type == "categorize":
+            self.last_triage_decision = f"category={action.value}"
 
         # Advance ticket based on task level and action type
         advance = self._should_advance(action)
@@ -609,6 +613,9 @@ class CustomerSupportEnv:
         avg_sentiment = (sum(t.sentiment for t in remaining) / len(remaining)) if remaining else 0.0
 
         role = self.task_config.get("role", "solo")
+        triage_decision = None
+        if role == "resolver" and ticket is not None:
+            triage_decision = self.last_triage_decision or f"category={ticket.category.value}"
 
         return Observation(
             current_ticket=ticket,
@@ -618,7 +625,8 @@ class CustomerSupportEnv:
             recent_actions=self.recent_actions[-5:],
             urgent_tickets_in_queue=urgent_count,
             avg_queue_sentiment=round(avg_sentiment, 3),
-            agent_role=role
+            agent_role=role,
+            triage_decision=triage_decision,
         )
 
     def _check_sla(self, ticket: Optional[Ticket]) -> str:

@@ -696,7 +696,7 @@ async function runDemo() {
   body.innerHTML = `<div class="demo-placeholder"><div class="icon" style="animation:spin 1s linear infinite;display:inline-block">⚙</div><div style="margin-top:.75rem">${msg}</div></div>`;
 
   try {
-    const res = await fetch(`/demo?task_level=${level}&use_llm=${useLlm}`);
+    const res = await fetch(`/demo?task_level=${level}&use_llm=${useLlm}&agent_type=${agentType}`);
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
 
@@ -714,12 +714,16 @@ async function runDemo() {
     const totalR = data.total_reward;
     const sign = totalR >= 0 ? '+' : '';
     const emoji = totalR > 1.5 ? '🏆' : totalR > 0.5 ? '✅' : '⚠️';
+    const modelLine = (useLlm && data.model_name)
+      ? `<div class="ep-sum-sub" style="margin-top:.2rem">Model: ${data.model_name}</div>`
+      : '';
     html += `
       <div class="episode-summary">
         <div class="ep-sum-icon">${emoji}</div>
         <div class="ep-sum-text">
           <div class="ep-sum-title">Episode Complete — ${data.task_level.replace('_',' ').toUpperCase()}</div>
           <div class="ep-sum-sub">${data.total_tickets} tickets handled · ${data.steps.length} steps taken</div>
+          ${modelLine}
         </div>
         <div class="ep-sum-score">${sign}${totalR.toFixed(4)}</div>
       </div>`;
