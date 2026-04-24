@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Support Envoy | OpenEnv</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --p: #6366f1; --p2: #818cf8; --g: #22c55e; --w: #f59e0b;
+  --r: #ef4444; --pu: #a855f7; --b: #38bdf8;
+  --bg: #070b14; --bg2: #0d1424; --card: #111827;
+  --card2: #1a2235; --border: rgba(255,255,255,0.07);
+  --text: #e2e8f0; --muted: #64748b; --muted2: #475569;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* NAV */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(7,11,20,0.85); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem; height: 56px;
+}
+.nav-logo { font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+.nav-logo .dot { width: 8px; height: 8px; background: var(--g); border-radius: 50%; box-shadow: 0 0 8px var(--g); animation: pulse 2s infinite; }
+.nav-links { display: flex; gap: 1.5rem; }
+.nav-links a { color: var(--muted); font-size: .85rem; text-decoration: none; transition: color .2s; }
+.nav-links a:hover { color: var(--text); }
+.nav-badge { background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.3); color: var(--p2); padding: .25rem .75rem; border-radius: 2rem; font-size: .7rem; font-weight: 600; }
+
+/* HERO */
+.hero { text-align: center; padding: 5rem 2rem 3rem; position: relative; overflow: hidden; }
+.hero::before {
+  content: ''; position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(99,102,241,.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(99,102,241,.1); border: 1px solid rgba(99,102,241,.25);
+  color: var(--p2); padding: .4rem 1rem; border-radius: 2rem;
+  font-size: .75rem; font-weight: 600; letter-spacing: .05em; margin-bottom: 1.5rem;
+}
+h1 {
+  font-size: clamp(2.2rem, 5vw, 4rem); font-weight: 700; line-height: 1.1;
+  background: linear-gradient(135deg, #818cf8 0%, #c084fc 50%, #38bdf8 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: .75rem;
+}
+.hero-sub { color: var(--muted); font-size: 1.05rem; max-width: 560px; margin: 0 auto 2.5rem; line-height: 1.6; }
+.hero-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.btn {
+  padding: .65rem 1.5rem; border-radius: .75rem; font-size: .9rem; font-weight: 600;
+  cursor: pointer; border: none; transition: all .2s; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-primary { background: var(--p); color: white; }
+.btn-primary:hover { background: #4f46e5; transform: translateY(-1px); }
+.btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-outline:hover { border-color: var(--p2); color: var(--p2); }
+
+/* STATS */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; max-width: 900px; margin: 0 auto 4rem; padding: 0 2rem; }
+.stat-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 1rem;
+  padding: 1.25rem 1.5rem; transition: border-color .2s;
+}
+.stat-card:hover { border-color: rgba(99,102,241,.3); }
+.stat-label { font-size: .7rem; color: var(--muted2); text-transform: uppercase; letter-spacing: .1em; margin-bottom: .4rem; }
+.stat-val { font-size: 1.6rem; font-weight: 700; color: #f1f5f9; }
+.stat-sub { font-size: .75rem; color: var(--muted); margin-top: .2rem; }
+
+/* SECTION */
+section { max-width: 1000px; margin: 0 auto; padding: 0 2rem 5rem; }
+.section-title { font-size: 1.4rem; font-weight: 700; margin-bottom: .4rem; }
+.section-sub { color: var(--muted); font-size: .9rem; margin-bottom: 2rem; }
+
+/* TASK LEVELS */
+.levels-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.level-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 1rem;
+  padding: 1.25rem 1.5rem; transition: all .2s; cursor: default;
+}
+.level-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.12); }
+.level-header { display: flex; align-items: center; gap: .6rem; margin-bottom: .6rem; }
+.level-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.level-name { font-weight: 600; font-size: .95rem; }
+.level-tag { margin-left: auto; font-size: .65rem; font-weight: 600; padding: .2rem .6rem; border-radius: 1rem; }
+.level-desc { font-size: .82rem; color: var(--muted); line-height: 1.5; margin-bottom: .75rem; }
+.level-reward { font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--g); background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.15); padding: .4rem .75rem; border-radius: .5rem; }
+
+/* LIVE DEMO */
+.demo-container { background: var(--card); border: 1px solid var(--border); border-radius: 1.25rem; overflow: hidden; }
+.demo-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.demo-header h3 { font-size: 1rem; font-weight: 600; flex: 1; }
+.select-level {
+  background: var(--card2); border: 1px solid var(--border); color: var(--text);
+  padding: .45rem .9rem; border-radius: .6rem; font-size: .85rem; font-family: 'Outfit', sans-serif;
+  cursor: pointer; outline: none;
+}
+.select-level:focus { border-color: var(--p); }
+.btn-run {
+  background: var(--p); color: white; border: none; padding: .45rem 1.25rem;
+  border-radius: .6rem; font-size: .85rem; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; gap: 6px; transition: all .2s;
+}
+.btn-run:hover { background: #4f46e5; }
+.btn-run:disabled { opacity: .5; cursor: not-allowed; }
+.btn-run .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+.btn-run.loading .spinner { display: block; }
+.btn-run.loading .run-icon { display: none; }
+
+.demo-body { padding: 1.5rem; }
+.demo-placeholder { text-align: center; padding: 3rem 1rem; color: var(--muted); }
+.demo-placeholder .icon { font-size: 2.5rem; margin-bottom: .75rem; }
+
+/* TICKET CARD */
+.ticket-card {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: .875rem;
+  padding: 1rem 1.25rem; margin-bottom: .75rem; animation: fadeIn .3s ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.ticket-top { display: flex; align-items: flex-start; gap: .75rem; margin-bottom: .75rem; }
+.ticket-id { font-family: 'JetBrains Mono', monospace; font-size: .7rem; color: var(--muted); background: rgba(255,255,255,.05); padding: .2rem .5rem; border-radius: .35rem; white-space: nowrap; }
+.ticket-desc { font-size: .9rem; color: var(--text); line-height: 1.4; flex: 1; }
+.ticket-meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; }
+.tag { font-size: .7rem; font-weight: 600; padding: .2rem .6rem; border-radius: 1rem; }
+.tag-cat { background: rgba(99,102,241,.15); color: var(--p2); }
+.tag-urgent { background: rgba(239,68,68,.15); color: #f87171; }
+.tag-high { background: rgba(245,158,11,.15); color: #fbbf24; }
+.tag-medium { background: rgba(99,102,241,.15); color: var(--p2); }
+.tag-low { background: rgba(100,116,139,.15); color: #94a3b8; }
+.tag-vip { background: rgba(168,85,247,.15); color: #c084fc; }
+.tag-sla-ok { background: rgba(34,197,94,.1); color: #4ade80; }
+.tag-sla-warn { background: rgba(245,158,11,.1); color: #fbbf24; }
+.tag-sla-breach { background: rgba(239,68,68,.1); color: #f87171; }
+.sentiment-bar { display: flex; align-items: center; gap: .5rem; font-size: .75rem; color: var(--muted); }
+.sentiment-track { flex: 1; height: 4px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden; max-width: 120px; }
+.sentiment-fill { height: 100%; border-radius: 2px; transition: width .4s; }
+
+/* ACTION ROW */
+.action-row {
+  background: rgba(99,102,241,.06); border: 1px solid rgba(99,102,241,.15);
+  border-radius: .75rem; padding: .875rem 1rem; margin-bottom: .5rem;
+  display: flex; gap: .75rem; align-items: flex-start; animation: fadeIn .3s ease;
+}
+.action-type-badge {
+  font-size: .7rem; font-weight: 700; padding: .25rem .6rem; border-radius: .4rem;
+  white-space: nowrap; flex-shrink: 0; margin-top: 1px;
+}
+.at-categorize { background: rgba(56,189,248,.15); color: var(--b); }
+.at-prioritize { background: rgba(245,158,11,.15); color: #fbbf24; }
+.at-resolve { background: rgba(34,197,94,.15); color: #4ade80; }
+.at-escalate { background: rgba(239,68,68,.15); color: #f87171; }
+.action-content { flex: 1; min-width: 0; }
+.action-value { font-size: .85rem; color: var(--text); margin-bottom: .3rem; word-break: break-word; }
+.action-reasoning { font-size: .75rem; color: var(--muted); font-style: italic; }
+
+/* REWARD ROW */
+.reward-row {
+  display: flex; align-items: center; gap: .75rem; padding: .5rem .75rem;
+  background: rgba(255,255,255,.03); border-radius: .6rem; margin-bottom: .75rem;
+  flex-wrap: wrap;
+}
+.reward-total { font-family: 'JetBrains Mono', monospace; font-size: .9rem; font-weight: 600; }
+.reward-pos { color: #4ade80; }
+.reward-neg { color: #f87171; }
+.reward-breakdown { display: flex; flex-wrap: wrap; gap: .4rem; }
+.rb-item { font-size: .68rem; padding: .15rem .5rem; border-radius: .35rem; font-family: 'JetBrains Mono', monospace; }
+.rb-pos { background: rgba(34,197,94,.1); color: #4ade80; }
+.rb-neg { background: rgba(239,68,68,.1); color: #f87171; }
+
+/* REWARD CHART */
+.chart-wrap { margin-top: 1.5rem; }
+.chart-title { font-size: .8rem; color: var(--muted); margin-bottom: .75rem; font-weight: 500; }
+.chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
+.chart-bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+.chart-bar { width: 100%; border-radius: 4px 4px 0 0; transition: height .4s ease; min-height: 4px; }
+.chart-bar-label { font-size: .65rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+/* EPISODE SUMMARY */
+.episode-summary {
+  background: rgba(34,197,94,.06); border: 1px solid rgba(34,197,94,.2);
+  border-radius: .875rem; padding: 1rem 1.25rem; margin-top: 1rem;
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  animation: fadeIn .4s ease;
+}
+.ep-sum-icon { font-size: 1.5rem; }
+.ep-sum-text { flex: 1; }
+.ep-sum-title { font-weight: 600; font-size: .95rem; margin-bottom: .2rem; }
+.ep-sum-sub { font-size: .8rem; color: var(--muted); }
+.ep-sum-score { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 700; color: #4ade80; }
+
+/* REWARD MODEL */
+.reward-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.reward-table th { text-align: left; padding: .6rem 1rem; font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted2); border-bottom: 1px solid var(--border); }
+.reward-table td { padding: .7rem 1rem; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
+.reward-table tr:last-child td { border-bottom: none; }
+.reward-table tr:hover td { background: rgba(255,255,255,.02); }
+.mono { font-family: 'JetBrains Mono', monospace; font-size: .8rem; }
+.green { color: #4ade80; } .red { color: #f87171; } .yellow { color: #fbbf24; }
+
+/* SETUP GUIDE */
+.steps-list { display: flex; flex-direction: column; gap: 1rem; }
+.step-item { display: flex; gap: 1rem; align-items: flex-start; }
+.step-num { width: 28px; height: 28px; border-radius: 50%; background: rgba(99,102,241,.2); border: 1px solid rgba(99,102,241,.3); color: var(--p2); font-size: .8rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+.step-content { flex: 1; }
+.step-title { font-weight: 600; font-size: .9rem; margin-bottom: .3rem; }
+.step-desc { font-size: .82rem; color: var(--muted); line-height: 1.5; margin-bottom: .5rem; }
+pre {
+  background: #0d1117; border: 1px solid var(--border); border-radius: .6rem;
+  padding: .875rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: .78rem;
+  color: #e2e8f0; overflow-x: auto; line-height: 1.6;
+}
+.code-comment { color: #6b7280; }
+.code-key { color: #818cf8; }
+.code-val { color: #4ade80; }
+.code-str { color: #fbbf24; }
+
+/* API ENDPOINTS */
+.ep-list { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; overflow: hidden; }
+.ep-item { display: flex; align-items: center; gap: 1rem; padding: .875rem 1.25rem; border-bottom: 1px solid var(--border); transition: background .15s; }
+.ep-item:last-child { border-bottom: none; }
+.ep-item:hover { background: rgba(255,255,255,.02); }
+.ep-method { font-size: .68rem; font-weight: 700; padding: .2rem .55rem; border-radius: .35rem; min-width: 44px; text-align: center; }
+.m-get { background: rgba(34,197,94,.12); color: #4ade80; }
+.m-post { background: rgba(99,102,241,.12); color: var(--p2); }
+.ep-path { font-family: 'JetBrains Mono', monospace; font-size: .85rem; }
+.ep-desc { font-size: .8rem; color: var(--muted); margin-left: auto; }
+
+/* FOOTER */
+footer { text-align: center; padding: 2rem; color: var(--muted2); font-size: .8rem; border-top: 1px solid var(--border); }
+footer a { color: var(--muted); text-decoration: none; }
+footer a:hover { color: var(--text); }
+
+/* ANIMATIONS */
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <div class="dot"></div>
+    🎧 AI Support Envoy
+  </div>
+  <div class="nav-links">
+    <a href="#demo">Live Demo</a>
+    <a href="#levels">Task Levels</a>
+    <a href="#rewards">Reward Model</a>
+    <a href="#setup">Setup</a>
+    <a href="/docs">API Docs</a>
+  </div>
+  <div class="nav-badge">OpenEnv v2.0</div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">
+    <div class="dot"></div>
+    Theme #3.1 World Modeling + Theme #1 Multi-Agent
+  </div>
+  <h1>AI Support Envoy</h1>
+  <p class="hero-sub">A training gym for AI agents. Simulate enterprise customer support — triage tickets, enforce SLAs, recover sentiment, and handle ticket storms.</p>
+  <div class="hero-actions">
+    <a href="#demo" class="btn btn-primary">▶ Run Live Demo</a>
+    <a href="#setup" class="btn btn-outline">⚙ Setup Guide</a>
+    <a href="/docs" class="btn btn-outline">📖 API Docs</a>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats" id="stats">
+  <div class="stat-card">
+    <div class="stat-label">Status</div>
+    <div class="stat-val" style="color:var(--g)" id="stat-status">Healthy</div>
+    <div class="stat-sub">All systems operational</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Task Levels</div>
+    <div class="stat-val">6</div>
+    <div class="stat-sub">easy → chaos → multi-agent</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Reward Model</div>
+    <div class="stat-val">Dense</div>
+    <div class="stat-sub">Shaped + SLA urgency signal</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Episodes Run</div>
+    <div class="stat-val" id="stat-episodes">0</div>
+    <div class="stat-sub">across all sessions</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Hackathon Theme</div>
+    <div class="stat-val" style="font-size:1.1rem">3.1 + 1</div>
+    <div class="stat-sub">World Modeling + Multi-Agent</div>
+  </div>
+</div>
+
+<!-- LIVE DEMO -->
+<section id="demo">
+  <div class="section-title">▶ Live Demo</div>
+  <div class="section-sub">Watch the agent handle real tickets step by step. Pick a difficulty and hit Run.</div>
+
+  <div class="demo-container">
+    <div class="demo-header">
+      <h3>Agent Episode Replay</h3>
+      <select class="select-level" id="level-select">
+        <option value="easy">🟢 Easy — Ticket Triage</option>
+        <option value="medium">🟡 Medium — Prioritization</option>
+        <option value="hard" selected>🔴 Hard — Full Resolution</option>
+        <option value="chaos">🟣 Chaos — Ticket Storm</option>
+        <option value="multi_agent_triage">🔵 Multi-Agent Triage</option>
+        <option value="multi_agent_resolver">🔵 Multi-Agent Resolver</option>
+      </select>
+      <select class="select-level" id="agent-type" style="margin-right:.5rem; border-color: var(--p);">
+        <option value="rule_based">🤖 Rule-Based Agent (Fast)</option>
+        <option value="base_llm">🧠 Base LLM (Instruct)</option>
+        <option value="rl_llm" selected>🏆 Trained LLM (GRPO/RLVR)</option>
+      </select>
+      <button class="btn-run" id="run-btn" onclick="runDemo()">
+        <span class="run-icon">▶ Run Episode</span>
+        <span class="spinner"></span>
+      </button>
+    </div>
+    <div class="demo-body" id="demo-body">
+      <div class="demo-placeholder">
+        <div class="icon">🎧</div>
+        <div>Pick a task level and click <strong>Run Episode</strong> to watch the agent work.</div>
+        <div style="margin-top:.5rem;font-size:.8rem;color:var(--muted2)">No API key needed — uses a rule-based agent for the demo.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TASK LEVELS -->
+<section id="levels">
+  <div class="section-title">🎮 Task Levels</div>
+  <div class="section-sub">Six progressive difficulty levels — from simple classification to multi-agent pipelines under chaos conditions.</div>
+  <div class="levels-grid">
+    <div class="level-card">
+      <div class="level-header">
+        <div class="level-dot" style="background:var(--g)"></div>
+        <div class="level-name">Easy — Ticket Triage</div>
+        <div class="level-tag" style="background:rgba(34,197,94,.1);color:#4ade80">Beginner</div>
+      </div>
+      <div class="level-desc">Classify incoming tickets into the correct category: technical, billing, account, feature_request, or complaint.</div>
+      <div class="level-reward">+0.40 correct | +0.10 valid-wrong | -0.30 invalid</div>
+    </div>
+    <div class="level-card">
+      <div class="level-header">
+        <div class="level-dot" style="background:var(--w)"></div>
+        <div class="level-name">Medium — Prioritization</div>
+        <div class="level-tag" style="background:rgba(245,158,11,.1);color:#fbbf24">Intermediate</div>
+      </div>
+      <div class="level-desc">Classify AND set the correct priority (low/medium/high/urgent) based on sentiment, SLA deadline, and VIP status.</div>
+      <div class="level-reward">+0.35 × SLA urgency multiplier | VIP awareness bonus</div>
+    </div>
+    <div class="level-card">
+      <div class="level-header">
+        <div class="level-dot" style="background:var(--r)"></div>
+        <div class="level-name">Hard — Full Resolution</div>
+        <div class="level-tag" style="background:rgba(239,68,68,.1);color:#f87171">Advanced</div>
+      </div>
+      <div class="level-desc">Resolve tickets using the knowledge base OR escalate when appropriate. Empathy, SLA compliance, and repeat-contact handling all scored.</div>
+      <div class="level-reward">+0.50 KB quality | +0.15 empathy | +0.10 SLA ok | -0.20 breach</div>
+    </div>
+    <div class="level-card">
+      <div class="level-header">
+        <div class="level-dot" style="background:var(--pu)"></div>
+        <div class="level-name">Chaos — Ticket Storm</div>
+        <div class="level-tag" style="background:rgba(168,85,247,.1);color:#c084fc">Expert</div>
+      </div>
+      <div class="level-desc">8 tickets at once. Some VIP, some SLAs already breached, some repeat contacts. Tests robustness under real enterprise pressure.</div>
+      <div class="level-reward">Urgency-weighted scoring | VIP 2× weight multiplier</div>
+    </div>
+    <div class="level-card">
+      <div class="level-header">
+        <div class="level-dot" style="background:var(--b)"></div>
+        <div class="level-name">Multi-Agent Triage</div>
+        <div class="level-tag" style="background:rgba(56,189,248,.1);color:var(--b)">Multi-Agent</div>
+      </div>
+      <div class="level-desc">Agent 1 in a two-agent pipeline. Categorize the ticket and route it to the correct specialist team.</div>
+      <div class="level-reward">Routing accuracy | Correct category + escalation path</div>
+    </div>
+    <div class="level-card">
+      <div class="level-header">
+        <div class="level-dot" style="background:var(--b)"></div>
+        <div class="level-name">Multi-Agent Resolver</div>
+        <div class="level-tag" style="background:rgba(56,189,248,.1);color:var(--b)">Multi-Agent</div>
+      </div>
+      <div class="level-desc">Agent 2 in the pipeline. Receives pre-triaged tickets and resolves or escalates with full context from Agent 1.</div>
+      <div class="level-reward">Resolution quality | Escalation correctness | SLA compliance</div>
+    </div>
+  </div>
+</section>
+
+<!-- REWARD MODEL -->
+<section id="rewards">
+  <div class="section-title">⚡ Reward Model</div>
+  <div class="section-sub">Dense shaped rewards — the agent gets a signal at every step, not just at the end. SLA urgency multiplies the priority reward in real time.</div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:1rem;overflow:hidden">
+    <table class="reward-table">
+      <thead>
+        <tr><th>Action</th><th>Condition</th><th>Reward</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="mono">categorize</td><td>Correct category</td><td class="mono green">+0.40 (+0.05 reasoning bonus)</td></tr>
+        <tr><td class="mono">categorize</td><td>Valid but wrong category</td><td class="mono yellow">+0.10</td></tr>
+        <tr><td class="mono">categorize</td><td>Invalid value</td><td class="mono red">-0.30</td></tr>
+        <tr><td class="mono">prioritize</td><td>Correct priority</td><td class="mono green">+0.35 × SLA urgency (1.0 / 1.2 / 1.5×)</td></tr>
+        <tr><td class="mono">prioritize</td><td>Off by one level</td><td class="mono yellow">+0.10</td></tr>
+        <tr><td class="mono">prioritize</td><td>Under-prioritize urgent</td><td class="mono red">-0.25 + -0.30 extra</td></tr>
+        <tr><td class="mono">prioritize</td><td>VIP customer, high/urgent</td><td class="mono green">+0.10 VIP bonus</td></tr>
+        <tr><td class="mono">resolve</td><td>KB-aligned resolution</td><td class="mono green">+0.50 × quality score</td></tr>
+        <tr><td class="mono">resolve</td><td>Empathy words for negative sentiment</td><td class="mono green">+0.15 empathy bonus</td></tr>
+        <tr><td class="mono">resolve</td><td>SLA not breached</td><td class="mono green">+0.10</td></tr>
+        <tr><td class="mono">resolve</td><td>SLA breached</td><td class="mono red">-0.20</td></tr>
+        <tr><td class="mono">escalate</td><td>Correct escalation decision</td><td class="mono green">+0.35 (+0.05 reasoning)</td></tr>
+        <tr><td class="mono">escalate</td><td>Unnecessary escalation</td><td class="mono red">-0.40</td></tr>
+        <tr><td class="mono">any</td><td>Step cost (efficiency)</td><td class="mono red">-0.01 per step</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ANTI-REWARD HACKING -->
+<section id="anti-hacking">
+  <div class="section-title">🛡️ Anti-Reward Hacking</div>
+  <div class="section-sub">RL agents are notorious for "specification gaming" (optimizing the proxy metric instead of the real goal). This environment actively detects and penalizes shortcuts.</div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:1rem;padding:1.5rem;display:flex;flex-direction:column;gap:1rem;">
+    <div style="background:rgba(239,68,68,.05);border-left:3px solid #ef4444;padding:1rem;border-radius:0 .5rem .5rem 0;">
+      <div style="font-weight:600;margin-bottom:.3rem;display:flex;align-items:center;gap:6px">🚨 Exploit: Priority Spam</div>
+      <div style="font-size:.85rem;color:var(--muted)">Agent marks every ticket as URGENT to maximize the SLA priority multiplier, ignoring actual sentiment.</div>
+      <div style="font-size:.8rem;color:#f87171;margin-top:.4rem;font-family:monospace">Protection: -0.40 hack penalty for marking Low/Medium tickets as Urgent.</div>
+    </div>
+    <div style="background:rgba(239,68,68,.05);border-left:3px solid #ef4444;padding:1rem;border-radius:0 .5rem .5rem 0;">
+      <div style="font-weight:600;margin-bottom:.3rem;display:flex;align-items:center;gap:6px">🚨 Exploit: Fake Empathy</div>
+      <div style="font-size:.85rem;color:var(--muted)">Agent spams "sorry" to get the +0.15 empathy bonus without actually providing KB steps to resolve the issue.</div>
+      <div style="font-size:.8rem;color:#f87171;margin-top:.4rem;font-family:monospace">Protection: -0.20 penalty if empathy words are used but resolution quality score is &lt; 40%.</div>
+    </div>
+  </div>
+</section>
+
+<!-- SETUP GUIDE -->
+<section id="setup">
+  <div class="section-title">⚙ Setup Guide</div>
+  <div class="section-sub">Get the environment running locally in under 5 minutes.</div>
+  <div class="steps-list">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Clone and install</div>
+        <div class="step-desc">Clone the repo and install dependencies into a virtual environment.</div>
+        <pre><span class="code-comment"># Clone from HuggingFace Space</span>
+git clone https://huggingface.co/spaces/punith2001/ai-support-envoy
+cd ai-support-envoy
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt</pre>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Add your HuggingFace token</div>
+        <div class="step-desc">Create a free token at huggingface.co/settings/tokens. The environment uses the HF Router for free LLM inference.</div>
+        <pre><span class="code-comment"># .env file</span>
+<span class="code-key">HF_TOKEN</span>=<span class="code-str">hf_your_token_here</span>
+<span class="code-key">API_BASE_URL</span>=<span class="code-str">https://router.huggingface.co/v1</span>
+<span class="code-key">MODEL_NAME</span>=<span class="code-str">Qwen/Qwen2.5-72B-Instruct</span></pre>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Validate the environment</div>
+        <div class="step-desc">Confirm OpenEnv compliance before running anything.</div>
+        <pre>openenv validate .
+<span class="code-comment"># Expected: [OK] : Ready for multi-mode deployment</span></pre>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <div class="step-title">Run the inference baseline</div>
+        <div class="step-desc">Runs the LLM agent across easy, medium, and hard tasks. Outputs [START] / [STEP] / [END] logs.</div>
+        <pre>python inference.py
+<span class="code-comment"># [START] task=easy env=customer-support-env model=Qwen/Qwen2.5-72B-Instruct</span>
+<span class="code-comment"># [STEP] step=1 action=categorize(technical) reward=0.4500 done=false error=null</span>
+<span class="code-comment"># [END] success=true steps=3 score=0.9900 rewards=0.4500,0.4500,0.4500</span></pre>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <div class="step-title">Use the environment in Python</div>
+        <div class="step-desc">Plug it into your own agent or training loop.</div>
+        <pre><span class="code-key">from</span> src.customer_support_env <span class="code-key">import</span> CustomerSupportEnv, Action
+
+env = CustomerSupportEnv(task_level=<span class="code-str">"hard"</span>)
+obs = env.reset()
+
+action = Action(
+    action_type=<span class="code-str">"resolve"</span>,
+    value=<span class="code-str">"Apologize for the frustration. Diagnosed error logs, restarted service."</span>,
+    reasoning=<span class="code-str">"Negative sentiment + technical issue"</span>
+)
+obs, reward, done, info = env.step(action)
+<span class="code-comment"># reward=0.74, breakdown={'resolution_quality':0.5,'empathy_bonus':0.15,...}</span></pre>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">6</div>
+      <div class="step-content">
+        <div class="step-title">Train with GRPO (on Colab or with compute credits)</div>
+        <div class="step-desc">Run the full curriculum training. Open train_colab.ipynb on Colab with a T4 GPU.</div>
+        <pre><span class="code-comment"># Full curriculum: easy → medium → hard</span>
+python train.py --model Qwen/Qwen2.5-0.5B-Instruct --curriculum easy,medium,hard
+
+<span class="code-comment"># Or open the Colab notebook</span>
+<span class="code-comment"># train_colab.ipynb → Runtime → T4 GPU → Run All</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- API ENDPOINTS -->
+<section id="api">
+  <div class="section-title">🔌 API Endpoints</div>
+  <div class="section-sub">All endpoints are session-isolated via <code style="font-family:monospace;font-size:.85em;background:rgba(255,255,255,.06);padding:.1rem .4rem;border-radius:.3rem">X-Session-Id</code> header.</div>
+  <div class="ep-list">
+    <div class="ep-item"><span class="ep-method m-get">GET</span><span class="ep-path">/</span><span class="ep-desc">This dashboard</span></div>
+    <div class="ep-item"><span class="ep-method m-get">GET</span><span class="ep-path">/health</span><span class="ep-desc">Health check + active sessions</span></div>
+    <div class="ep-item"><span class="ep-method m-post">POST</span><span class="ep-path">/reset</span><span class="ep-desc">Start new episode — body: {task_level, seed}</span></div>
+    <div class="ep-item"><span class="ep-method m-post">POST</span><span class="ep-path">/step</span><span class="ep-desc">Execute action — body: {action_type, value, reasoning}</span></div>
+    <div class="ep-item"><span class="ep-method m-get">GET</span><span class="ep-path">/state</span><span class="ep-desc">Current state + reward history</span></div>
+    <div class="ep-item"><span class="ep-method m-get">GET</span><span class="ep-path">/demo</span><span class="ep-desc">Run simulated episode — ?task_level=hard</span></div>
+    <div class="ep-item"><span class="ep-method m-get">GET</span><span class="ep-path">/metrics</span><span class="ep-desc">Aggregated metrics across all sessions</span></div>
+    <div class="ep-item"><span class="ep-method m-get">GET</span><span class="ep-path">/docs</span><span class="ep-desc">Interactive Swagger API docs</span></div>
+  </div>
+</section>
+
+<footer>
+  🎧 AI Support Envoy &nbsp;·&nbsp; Meta PyTorch OpenEnv Hackathon &nbsp;·&nbsp;
+  <a href="https://huggingface.co/spaces/punith2001/ai-support-envoy">HuggingFace Space</a> &nbsp;·&nbsp;
+  Built by Punith S
+</footer>
+
+<script>
+// ── Fetch metrics on load ────────────────────────────────────
+async function loadMetrics() {
+  try {
+    const r = await fetch('/metrics');
+    const d = await r.json();
+    document.getElementById('stat-episodes').textContent = d.total_episodes || 0;
+  } catch(e) {}
+  try {
+    const r = await fetch('/health');
+    const d = await r.json();
+    const el = document.getElementById('stat-status');
+    if (d.status === 'healthy') { el.textContent = 'Healthy'; el.style.color = 'var(--g)'; }
+    else { el.textContent = 'Degraded'; el.style.color = 'var(--r)'; }
+  } catch(e) {
+    document.getElementById('stat-status').textContent = 'Offline';
+    document.getElementById('stat-status').style.color = 'var(--r)';
+  }
+}
+loadMetrics();
+
+// ── Helpers ──────────────────────────────────────────────────
+function sentimentColor(s) {
+  if (s <= -0.5) return '#f87171';
+  if (s <= -0.2) return '#fbbf24';
+  if (s >= 0.3)  return '#4ade80';
+  return '#94a3b8';
+}
+
+function slaTag(status) {
+  if (status === 'breached') return '<span class="tag tag-sla-breach">⚠ SLA Breached</span>';
+  if (status === 'warning')  return '<span class="tag tag-sla-warn">⏰ SLA Warning</span>';
+  return '<span class="tag tag-sla-ok">✓ SLA OK</span>';
+}
+
+function priorityTag(p) {
+  const map = { urgent:'tag-urgent', high:'tag-high', medium:'tag-medium', low:'tag-low' };
+  return `<span class="tag ${map[p] || 'tag-medium'}">${p.toUpperCase()}</span>`;
+}
+
+function actionBadge(type) {
+  const map = { categorize:'at-categorize', prioritize:'at-prioritize', resolve:'at-resolve', escalate:'at-escalate' };
+  return `<span class="action-type-badge ${map[type] || 'at-categorize'}">${type}</span>`;
+}
+
+function rewardColor(r) { return r >= 0 ? 'reward-pos' : 'reward-neg'; }
+
+function renderBreakdown(bd) {
+  return Object.entries(bd).map(([k, v]) => {
+    const cls = v >= 0 ? 'rb-pos' : 'rb-neg';
+    const sign = v >= 0 ? '+' : '';
+    return `<span class="rb-item ${cls}">${k}: ${sign}${v.toFixed(3)}</span>`;
+  }).join('');
+}
+
+function renderTicket(t) {
+  const sentPct = Math.round(((t.sentiment + 1) / 2) * 100);
+  const sentCol = sentimentColor(t.sentiment);
+  return `
+    <div class="ticket-card">
+      <div class="ticket-top">
+        <span class="ticket-id">#${t.id}</span>
+        <span class="ticket-desc">${t.description}</span>
+      </div>
+      <div class="ticket-meta">
+        <span class="tag tag-cat">${t.category}</span>
+        ${priorityTag(t.priority)}
+        ${slaTag(t.sla_status)}
+        ${t.is_vip ? '<span class="tag tag-vip">⭐ VIP</span>' : ''}
+        ${t.previous_contacts > 0 ? `<span class="tag" style="background:rgba(100,116,139,.15);color:#94a3b8">↩ ${t.previous_contacts} contacts</span>` : ''}
+      </div>
+      <div class="sentiment-bar">
+        <span>Sentiment ${t.sentiment.toFixed(2)}</span>
+        <div class="sentiment-track">
+          <div class="sentiment-fill" style="width:${sentPct}%;background:${sentCol}"></div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderStep(step, idx) {
+  const sign = step.reward >= 0 ? '+' : '';
+  return `
+    <div style="margin-bottom:1.25rem">
+      <div style="font-size:.72rem;color:var(--muted2);margin-bottom:.4rem;font-weight:600">STEP ${idx + 1}</div>
+      ${renderTicket(step.ticket)}
+      <div class="action-row">
+        ${actionBadge(step.action.type)}
+        <div class="action-content">
+          <div class="action-value">${step.action.value}</div>
+          ${step.action.reasoning ? `<div class="action-reasoning">"${step.action.reasoning}"</div>` : ''}
+        </div>
+      </div>
+      <div class="reward-row">
+        <span style="font-size:.75rem;color:var(--muted)">Reward:</span>
+        <span class="reward-total ${rewardColor(step.reward)}">${sign}${step.reward.toFixed(4)}</span>
+        <div class="reward-breakdown">${renderBreakdown(step.reward_breakdown)}</div>
+      </div>
+    </div>`;
+}
+
+function renderChart(steps) {
+  const rewards = steps.map(s => s.reward);
+  const maxAbs = Math.max(...rewards.map(Math.abs), 0.1);
+  const bars = rewards.map((r, i) => {
+    const h = Math.round((Math.abs(r) / maxAbs) * 70);
+    const col = r >= 0 ? 'var(--g)' : 'var(--r)';
+    const sign = r >= 0 ? '+' : '';
+    return `<div class="chart-bar-wrap">
+      <div class="chart-bar" style="height:${h}px;background:${col};opacity:.8"></div>
+      <div class="chart-bar-label">${sign}${r.toFixed(2)}</div>
+    </div>`;
+  }).join('');
+  return `
+    <div class="chart-wrap">
+      <div class="chart-title">Reward per step</div>
+      <div class="chart-bars">${bars}</div>
+    </div>`;
+}
+
+// ── Main demo runner ─────────────────────────────────────────
+async function runDemo() {
+  const btn = document.getElementById('run-btn');
+  const body = document.getElementById('demo-body');
+  const level = document.getElementById('level-select').value;
+  const agentType = document.getElementById('agent-type').value;
+  const useLlm = (agentType === 'base_llm' || agentType === 'rl_llm');
+
+  btn.classList.add('loading');
+  btn.disabled = true;
+  
+  const msg = useLlm 
+    ? `Calling Hugging Face Inference API for <strong>${level}</strong> using <strong>${agentType === 'rl_llm' ? '🏆 Trained LLM' : '🧠 Base LLM'}</strong>...<br><span style="font-size:.8rem;color:var(--p2)">Retrieving live LLM actions (this may take 30-60 secs)</span>`
+    : `Running episode on <strong>${level}</strong> using Rule-Based Agent...`;
+    
+  body.innerHTML = `<div class="demo-placeholder"><div class="icon" style="animation:spin 1s linear infinite;display:inline-block">⚙</div><div style="margin-top:.75rem">${msg}</div></div>`;
+
+  try {
+    const res = await fetch(`/demo?task_level=${level}&use_llm=${useLlm}`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+
+    let html = '';
+
+    // Render steps with a small delay for animation effect
+    for (let i = 0; i < data.steps.length; i++) {
+      html += renderStep(data.steps[i], i);
+    }
+
+    // Reward chart
+    html += renderChart(data.steps);
+
+    // Episode summary
+    const totalR = data.total_reward;
+    const sign = totalR >= 0 ? '+' : '';
+    const emoji = totalR > 1.5 ? '🏆' : totalR > 0.5 ? '✅' : '⚠️';
+    html += `
+      <div class="episode-summary">
+        <div class="ep-sum-icon">${emoji}</div>
+        <div class="ep-sum-text">
+          <div class="ep-sum-title">Episode Complete — ${data.task_level.replace('_',' ').toUpperCase()}</div>
+          <div class="ep-sum-sub">${data.total_tickets} tickets handled · ${data.steps.length} steps taken</div>
+        </div>
+        <div class="ep-sum-score">${sign}${totalR.toFixed(4)}</div>
+      </div>`;
+
+    body.innerHTML = html;
+
+    // Update episode counter
+    loadMetrics();
+
+  } catch(e) {
+    body.innerHTML = `<div class="demo-placeholder" style="color:var(--r)">
+      <div class="icon">⚠️</div>
+      <div>Error: ${e.message}</div>
+      <div style="margin-top:.5rem;font-size:.8rem;color:var(--muted)">Make sure the server is running.</div>
+    </div>`;
+  } finally {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

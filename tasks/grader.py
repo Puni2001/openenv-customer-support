@@ -1,131 +1,208 @@
-"""Graders for each difficulty level"""
+"""
+Graders for each difficulty level.
+Aligned with environment reward logic — no mismatches.
+"""
 
-from typing import List, Dict
-from src.customer_support_env import Ticket, Priority, TicketCategory
+from typing import List, Dict, Optional
+from src.customer_support_env import (
+    Ticket, Priority, TicketCategory, PRIORITY_RANK, KNOWLEDGE_BASE
+)
+
 
 class TaskGrader:
-    """Programmatic graders for each task difficulty"""
-    
+    """
+    Programmatic graders for each task difficulty.
+    All scores clamped to (0.01, 0.99) per OpenEnv Phase 2 spec.
+    """
+
     @staticmethod
     def grade_easy(agent_actions: List[Dict], tickets: List[Ticket]) -> float:
-        """
-        Grade easy task: correct categorization only
-        
-        Returns score 0.0 - 1.0
-        """
+        """Correct categorization + reasoning quality."""
         if not tickets:
             return 0.01
-            
         correct = 0
+        reasoning_bonus = 0.0
         for i, action in enumerate(agent_actions):
             if i >= len(tickets):
                 break
-                
-            expected_category = tickets[i].category.value
-            if action.get("categorization") == expected_category:
+            if action.get("categorization") == tickets[i].category.value:
                 correct += 1
-        
-        return TaskGrader._clamp_score(correct / len(tickets))
-    
+                if len(action.get("reasoning", "")) > 20:
+                    reasoning_bonus += 0.05
+        base = correct / len(tickets)
+        bonus = min(0.1, reasoning_bonus / len(tickets))
+        return TaskGrader._clamp(base + bonus)
+
     @staticmethod
     def grade_medium(agent_actions: List[Dict], tickets: List[Ticket]) -> float:
-        """
-        Grade medium task: categorization + priority with SLA
-        
-        Returns score 0.0 - 1.0
-        """
+        """Categorization + priority with SLA and VIP awareness."""
         if not tickets:
             return 0.01
-            
-        category_score = 0
-        priority_score = 0
-        
+        cat_score = 0.0
+        pri_score = 0.0
+        vip_score = 0.0
+        vip_count = max(1, sum(1 for t in tickets if t.is_vip))
+
         for i, action in enumerate(agent_actions):
             if i >= len(tickets):
                 break
-                
-            # Category accuracy (50% weight)
-            if action.get("categorization") == tickets[i].category.value:
-                category_score += 1
-            
-            # Priority accuracy (50% weight)
-            expected_priority = TaskGrader._get_expected_priority(tickets[i])
-            if action.get("priority") == expected_priority.value:
-                priority_score += 1
-        
-        category_accuracy = category_score / len(tickets)
-        priority_accuracy = priority_score / len(tickets)
-        
-        # Weighted average
-        return TaskGrader._clamp_score((category_accuracy * 0.5) + (priority_accuracy * 0.5))
-    
+            t = tickets[i]
+            expected = TaskGrader._expected_priority(t)
+
+            if action.get("categorization") == t.category.value:
+                cat_score += 1
+
+            agent_pri = action.get("priority", "")
+            if agent_pri == expected.value:
+                pri_score += 1
+            elif agent_pri in {p.value for p in Priority}:
+                diff = abs(PRIORITY_RANK[Priority(agent_pri)] - PRIORITY_RANK[expected])
+                if diff == 1:
+                    pri_score += 0.5
+
+            # VIP awareness
+            if t.is_vip and agent_pri in ("high", "urgent"):
+                vip_score += 1
+
+        n = len(tickets)
+        cat_acc = cat_score / n
+        pri_acc = pri_score / n
+        vip_acc = vip_score / vip_count
+
+        return TaskGrader._clamp(cat_acc * 0.4 + pri_acc * 0.45 + vip_acc * 0.15)
+
     @staticmethod
-    def grade_hard(agent_actions: List[Dict], tickets: List[Ticket], 
-                   knowledge_base: Dict[str, str]) -> float:
-        """
-        Grade hard task: full resolution with KB and escalation
-        
-        Returns score 0.0 - 1.0
-        """
+    def grade_hard(agent_actions: List[Dict], tickets: List[Ticket]) -> float:
+        """Full resolution: quality, escalation, sentiment recovery, SLA."""
         if not tickets:
             return 0.01
-            
-        resolution_score = 0
-        escalation_score = 0
-        sentiment_recovery_score = 0
-        
+
+        resolution_score = 0.0
+        escalation_score = 0.0
+        sentiment_score = 0.0
+        sla_score = 0.0
+
         for i, action in enumerate(agent_actions):
             if i >= len(tickets):
                 break
-                
-            ticket = tickets[i]
-            
-            # Check resolution quality
-            if action.get("resolution"):
-                # Check if resolution aligns with knowledge base
-                kb_solution = knowledge_base.get(ticket.category.value, "")
-                if any(word in action["resolution"].lower() for word in kb_solution.split()):
-                    resolution_score += 1
-                
-                # Check sentiment recovery
-                if ticket.sentiment < -0.5 and action.get("sentiment_recovered", False):
-                    sentiment_recovery_score += 1
-            
-            # Check escalation appropriateness
-            should_escalate = ticket.sentiment < -0.5 or ticket.category == TicketCategory.COMPLAINT
-            if action.get("escalated", False) == should_escalate:
+            t = tickets[i]
+            kb = KNOWLEDGE_BASE.get(t.category.value, {})
+            kb_keywords = kb.get("keywords", []) + [w for s in kb.get("steps", []) for w in s.split()]
+
+            # Resolution quality
+            resolution_text = action.get("resolution", "")
+            if resolution_text:
+                hits = sum(1 for kw in kb_keywords if kw in resolution_text.lower())
+                quality = min(1.0, hits / max(3, len(kb_keywords) * 0.3))
+                resolution_score += quality
+
+            # Escalation correctness
+            should_escalate = (
+                t.sentiment <= -0.7
+                or t.category == TicketCategory.COMPLAINT
+                or (t.is_vip and t.sentiment < -0.4)
+                or t.previous_contacts >= 4
+            )
+            agent_escalated = action.get("escalated", False)
+            if agent_escalated == should_escalate:
                 escalation_score += 1
-        
-        resolution_accuracy = resolution_score / len(tickets)
-        escalation_accuracy = escalation_score / len(tickets)
-        sentiment_recovery = sentiment_recovery_score / len(tickets)
-        
-        # Weighted combination
-        return TaskGrader._clamp_score((resolution_accuracy * 0.5) + (escalation_accuracy * 0.3) + (sentiment_recovery * 0.2))
-    
+
+            # Sentiment recovery
+            if t.sentiment < -0.3 and resolution_text:
+                empathy_words = ["apologize", "sorry", "understand", "frustration", "priority", "immediately"]
+                if any(w in resolution_text.lower() for w in empathy_words):
+                    sentiment_score += 1
+
+            # SLA compliance (check if ticket was handled before breach)
+            if action.get("resolved_within_sla", True):
+                sla_score += 1
+
+        n = len(tickets)
+        return TaskGrader._clamp(
+            (resolution_score / n) * 0.40
+            + (escalation_score / n) * 0.25
+            + (sentiment_score / n) * 0.20
+            + (sla_score / n) * 0.15
+        )
+
     @staticmethod
-    def _clamp_score(score: float) -> float:
-        """Ensure score is strictly within (0, 1) range as per Phase 2 requirements"""
-        return max(0.01, min(0.99, float(score)))
-    
+    def grade_chaos(agent_actions: List[Dict], tickets: List[Ticket]) -> float:
+        """Chaos mode: weighted by urgency and VIP status."""
+        if not tickets:
+            return 0.01
+
+        weighted_score = 0.0
+        total_weight = 0.0
+
+        for i, action in enumerate(agent_actions):
+            if i >= len(tickets):
+                break
+            t = tickets[i]
+            weight = PRIORITY_RANK[t.priority] * (2.0 if t.is_vip else 1.0)
+            total_weight += weight
+
+            kb = KNOWLEDGE_BASE.get(t.category.value, {})
+            kb_keywords = kb.get("keywords", []) + [w for s in kb.get("steps", []) for w in s.split()]
+            resolution_text = action.get("resolution", "")
+            hits = sum(1 for kw in kb_keywords if kw in resolution_text.lower()) if resolution_text else 0
+            quality = min(1.0, hits / max(3, len(kb_keywords) * 0.3))
+
+            should_escalate = t.sentiment <= -0.7 or t.category == TicketCategory.COMPLAINT
+            agent_escalated = action.get("escalated", False)
+            escalation_ok = 1.0 if agent_escalated == should_escalate else 0.0
+
+            ticket_score = quality * 0.6 + escalation_ok * 0.4
+            weighted_score += ticket_score * weight
+
+        if total_weight == 0:
+            return 0.01
+        return TaskGrader._clamp(weighted_score / total_weight)
+
     @staticmethod
-    def _get_expected_priority(ticket: Ticket) -> Priority:
-        """Determine expected priority based on category and sentiment.
-        Matches the logic in CustomerSupportEnv._calculate_expected_priority.
+    def grade_multi_agent(triage_actions: List[Dict], resolver_actions: List[Dict],
+                           tickets: List[Ticket]) -> Dict[str, float]:
         """
-        sentiment = ticket.sentiment
-        category = ticket.category
-        
-        if sentiment < -0.8:
-            return Priority.URGENT
-        if sentiment < -0.4:
-            return Priority.HIGH
-        if category == TicketCategory.COMPLAINT and sentiment < -0.2:
-            return Priority.HIGH
-        if category == TicketCategory.BILLING and sentiment < 0:
-            return Priority.HIGH
-        if category == TicketCategory.TECHNICAL and sentiment < -0.2:
-            return Priority.HIGH
-        if category == TicketCategory.FEATURE_REQUEST:
-            return Priority.LOW
-        return Priority.MEDIUM
+        Grade multi-agent pipeline.
+        Returns separate scores for triage and resolver agents.
+        """
+        triage_score = TaskGrader.grade_easy(triage_actions, tickets)
+        resolver_score = TaskGrader.grade_hard(resolver_actions, tickets)
+        pipeline_score = TaskGrader._clamp(triage_score * 0.35 + resolver_score * 0.65)
+        return {
+            "triage_score": triage_score,
+            "resolver_score": resolver_score,
+            "pipeline_score": pipeline_score
+        }
+
+    # ----------------------------------------------------------
+    # Helpers
+    # ----------------------------------------------------------
+
+    @staticmethod
+    def _clamp(score: float) -> float:
+        return max(0.01, min(0.99, float(score)))
+
+    @staticmethod
+    def _expected_priority(ticket: Ticket) -> Priority:
+        s = ticket.sentiment
+        c = ticket.category
+        is_vip = ticket.is_vip
+        prev = ticket.previous_contacts
+
+        if s <= -0.8:
+            base = Priority.URGENT
+        elif s <= -0.5:
+            base = Priority.HIGH
+        elif s <= -0.2 and c in (TicketCategory.COMPLAINT, TicketCategory.BILLING, TicketCategory.TECHNICAL):
+            base = Priority.HIGH
+        elif c == TicketCategory.FEATURE_REQUEST:
+            base = Priority.LOW
+        else:
+            base = Priority.MEDIUM
+
+        rank = PRIORITY_RANK[base]
+        if is_vip:
+            rank = min(4, rank + 1)
+        if prev >= 3:
+            rank = min(4, rank + 1)
+        return [p for p, r in PRIORITY_RANK.items() if r == rank][0]

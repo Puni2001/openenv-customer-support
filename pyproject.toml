@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openenv-customer-support"
-version = "1.0.0"
-description = "Customer support ticket resolution environment for OpenEnv"
+version = "2.0.0"
+description = "AI Support Envoy — Enterprise customer support RL environment for OpenEnv"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -20,6 +20,8 @@ dependencies = [
     "pydantic>=2.0.0",
     "numpy>=1.24.0",
     "openai>=1.0.0",
+    "python-dotenv>=1.0.0",
+    "matplotlib>=3.7.0",
 ]
 
 [project.scripts]

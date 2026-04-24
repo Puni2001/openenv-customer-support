@@ -1,16 +1,28 @@
-name: customer-support-env
-version: 1.0.0
-description: Customer support ticket resolution environment
+name: ai-support-envoy
+version: 2.0.0
+description: >
+  Enterprise customer support RL environment with multi-agent mode, chaos testing,
+  dense shaped rewards, and curriculum learning.
+  Themes: World Modeling (3.1) + Multi-Agent Interactions (1).
 
 tasks:
   - name: easy
-    description: Categorize incoming support tickets
-    
+    description: Ticket triage — correct categorization with reasoning quality bonus
+
   - name: medium
-    description: Categorize and prioritize tickets
-    
+    description: Triage + prioritization with SLA urgency signal and VIP awareness
+
   - name: hard
-    description: Full ticket resolution
+    description: Full resolution — KB-grounded quality, sentiment recovery, SLA compliance
+
+  - name: chaos
+    description: Ticket storm — high volume, dynamic SLAs, mixed VIP/repeat contacts
+
+  - name: multi_agent_triage
+    description: Multi-agent pipeline — triage specialist agent (categorize + route)
+
+  - name: multi_agent_resolver
+    description: Multi-agent pipeline — resolver specialist agent (resolve + escalate)
 
 environment:
   class: src.customer_support_env.CustomerSupportEnv
@@ -24,3 +36,16 @@ observation_space:
 action_space:
   type: pydantic
   model: src.customer_support_env.Action
+
+reward:
+  type: dense
+  shaped: true
+  components:
+    - correct_category
+    - correct_priority
+    - resolution_quality
+    - empathy_bonus
+    - sla_compliance
+    - vip_awareness
+    - escalation_reasoning
+    - step_cost
