@@ -1,6 +1,6 @@
 # FrontierOps Arena: Mini-Blog for Judges
 
-**Demo video (<2 min):** [YouTube demo](https://youtu.be/BQKfDsODfFk)  
+**Demo video (<2 min):** [YouTube demo](https://youtu.be/1-6ji4GL8bc)  
 **Live environment:** [Hugging Face Space](https://huggingface.co/spaces/punith2001/frontierops-arena)  
 **Submission report:** [HF Discussion #2](https://huggingface.co/spaces/punith2001/frontierops-arena/discussions/2)  
 **README (all links):** [GitHub README](https://github.com/Puni2001/frontierops-arena)

@@ -13,10 +13,10 @@ pinned: false
 
 **Live assets**
 - Technical blog/report: [Grand Finale Submission Report](https://huggingface.co/spaces/punith2001/frontierops-arena/discussions/2)
-- Demo video: [YouTube demo](https://youtu.be/BQKfDsODfFk)
+- Demo video: [YouTube demo](https://youtu.be/1-6ji4GL8bc)
 - Hugging Face Space: [frontierops-arena](https://huggingface.co/spaces/punith2001/frontierops-arena)
 
-[![Watch the Demo](https://img.youtube.com/vi/BQKfDsODfFk/0.jpg)](https://youtu.be/BQKfDsODfFk)
+[![Watch the Demo](https://img.youtube.com/vi/1-6ji4GL8bc/0.jpg)](https://youtu.be/1-6ji4GL8bc)
 *Click above to watch the benchmark in action.*
 
 **Hackathon themes:** #3.1 World Modeling (primary), #1 Multi-Agent Interactions (active), #4 Self-Improvement (roadmap)
