@@ -94,6 +94,7 @@ def generate_dataset(task_level: str, n_samples: int = 500) -> List[Dict]:
         "medium": "You are a support ops agent. Set the correct priority: low, medium, high, or urgent. Respond in JSON: {\"action_type\": \"prioritize\", \"value\": \"<priority>\", \"reasoning\": \"<why>\"}",
         "hard": "You are a support resolution specialist. Resolve the ticket using KB steps or escalate (if sentiment < -0.7 or category is complaint). Respond in JSON: {\"action_type\": \"resolve|escalate\", \"value\": \"<resolution>\", \"reasoning\": \"<why>\"}",
         "chaos": "You are handling a ticket storm. Resolve or escalate efficiently. Respond in JSON: {\"action_type\": \"resolve|escalate\", \"value\": \"<resolution>\", \"reasoning\": \"<why>\"}",
+        "frontier": "You are a governance-aware support agent. Use tool_call to collect evidence (fraud_screen, kyc_verify, policy_lookup, trust_safety_review) before final actions. Choose tool_call/resolve/escalate/human_review_required/legal_hold based on risk and evidence. Respond in JSON: {\"action_type\": \"tool_call|resolve|escalate|human_review_required|legal_hold\", \"value\": \"<tool or decision>\", \"reasoning\": \"<evidence and policy>\"}",
     }
 
     system = SYSTEM_PROMPTS.get(task_level, SYSTEM_PROMPTS["hard"])
@@ -113,10 +114,12 @@ def generate_dataset(task_level: str, n_samples: int = 500) -> List[Dict]:
         meta.append(f"VIP: {ticket.is_vip}")
         meta.append(f"Previous Contacts: {ticket.previous_contacts}")
         
-        if task_level in ("hard", "chaos"):
+        if task_level in ("hard", "chaos", "frontier"):
             kb = KNOWLEDGE_BASE.get(ticket.category.value, {})
             steps = ", ".join(kb.get("steps", []))
             meta.append(f"KB Steps: {steps}")
+            meta.append(f"High Risk Flags: {', '.join(ticket.high_risk_flags) if ticket.high_risk_flags else 'none'}")
+            meta.append(f"Governance Hint: {env._build_observation(ticket).governance_hint}")
             
         user = "\n".join(meta)
 
@@ -245,7 +248,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", default="Qwen/Qwen2.5-0.5B-Instruct",
                         help="HuggingFace model ID")
     parser.add_argument("--task", default="easy",
-                        choices=["easy", "medium", "hard", "chaos"],
+                        choices=["easy", "medium", "hard", "chaos", "frontier"],
                         help="Single task level (ignored if --curriculum set)")
     parser.add_argument("--curriculum", default="easy,medium,hard",
                         help="Comma-separated curriculum order, e.g. easy,medium,hard")

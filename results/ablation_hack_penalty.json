@@ -1,17 +1,25 @@
 {
   "with_penalty": {
     "episodes": 20,
-    "mean_reward": -1.287,
-    "min_reward": -2.64,
-    "max_reward": -0.39,
-    "hack_penalty_trigger_count": 48
+    "mean_reward": -1.5955,
+    "min_reward": -3.54,
+    "max_reward": 0.68,
+    "hack_penalty_trigger_count": 46
   },
   "without_penalty": {
     "episodes": 20,
-    "mean_reward": -0.327,
-    "min_reward": -1.04,
-    "max_reward": 0.4,
+    "mean_reward": -0.6755,
+    "min_reward": -1.94,
+    "max_reward": 0.68,
     "hack_penalty_trigger_count": 0
   },
-  "delta_mean_reward_without_minus_with": 0.96
+  "delta_mean_reward_without_minus_with": 0.92,
+  "governance_ablation": {
+    "episodes": 20,
+    "unsafe_policy_mean_reward": -0.9132,
+    "safe_policy_mean_reward": -0.94,
+    "delta_safe_minus_unsafe": -0.0268,
+    "unsafe_wrongful_autonomy_count": 6,
+    "safe_wrongful_autonomy_count": 0
+  }
 }

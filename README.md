@@ -22,6 +22,70 @@ pinned: false
 
 ## Final Performance Report (Verified Proof)
 
+**Judge fast path:**
+- One-page evidence summary: `results/judge_scorecard.md`
+- Judge Q&A pack: `JUDGE_QA.md`
+- Full interactive checklist (same facts as below): open the app UI → **Judge Checklist** section on the dashboard (`/` → scroll to *Judge — Complete Feature Checklist*), or **Run History** (`/history`) → *Judge — Repo Artifacts & Scripts*.
+
+## Judge: Full Feature Index (manual review)
+
+Use this section so nothing in the codebase is “hidden” from reviewers.
+
+### Task modes (7)
+
+`easy`, `medium`, `hard`, `chaos`, `multi_agent_triage`, `multi_agent_resolver`, `frontier` — all declared in [`openenv.yaml`](openenv.yaml) and implemented in [`src/customer_support_env.py`](src/customer_support_env.py).
+
+### Six high-risk categories
+
+Detected from ticket text; governance gate in [`src/policy_rules.py`](src/policy_rules.py):
+
+| Category | Purpose |
+| :--- | :--- |
+| `pii_exposure` | Sensitive data handling; blocks naive resolve without evidence |
+| `fraud_risk` | Requires fraud tool evidence before autonomy |
+| `account_takeover` | Requires KYC-style evidence |
+| `prompt_injection` | Adversarial instruction patterns |
+| `legal_threat` | Triggers `legal_hold` path |
+| `medical_safety` | High-stakes health wording |
+
+First-class actions: `tool_call`, `human_review_required`, `legal_hold` (plus `resolve`, `escalate`, …). Telemetry in env state: `safe_handoff`, `unsafe_action_blocked`, `wrongful_autonomy`, `governance_blocks`, `tool_calls`, `tool_fallbacks`.
+
+### Four industry domain packs
+
+Defined in [`src/mock_data_fixtures.py`](src/mock_data_fixtures.py): **ecommerce**, **telecom**, **healthcare_insurance**, **travel** — intents, policy snippets, multilingual / adversarial customer lines.
+
+### Mock `tool_call` APIs (evidence before autonomy)
+
+Implemented via [`src/toolhub.py`](src/toolhub.py) + provider-style layer [`src/mock_api_stack.py`](src/mock_api_stack.py) (latency, rate-limit, timeout, fallback). **Tool names:** `policy_lookup`, `fraud_screen`, `kyc_verify`, `trust_safety_review`, `legal_escalation`, `customer_history`, `payment_lookup`, `order_lookup`. Optional richer customer fields use **Faker** when installed (`requirements.txt`).
+
+### Voice / multilingual (mock)
+
+[`src/voice_stack.py`](src/voice_stack.py): mock ASR/TTS, text normalization, light language hints for code-mixed input.
+
+### RL, anti-hacking, ablations
+
+- Training: [`train.py`](train.py) (GRPO / TRL), curriculum including `frontier`; notebook [`train_colab.ipynb`](train_colab.ipynb).
+- Anti–reward-hacking: urgent-spam penalty, fake-empathy guard (in env reward).
+- Ablations: [`ablation_eval.py`](ablation_eval.py) → [`results/ablation_hack_penalty.json`](results/ablation_hack_penalty.json) (penalty on/off + governance ablation summary).
+
+### Evaluation & reproducibility
+
+[`evaluate_models.py`](evaluate_models.py): offline multi-seed runs; outputs [`results/final_baseline_vs_trained.md`](results/final_baseline_vs_trained.md), [`results/final_baseline_vs_trained.json`](results/final_baseline_vs_trained.json), [`results/final_summary_stats.json`](results/final_summary_stats.json); markdown includes **Safety and Governance Scorecard** table.
+
+### Scorecards & server API
+
+[`server/app.py`](server/app.py): `GET /scorecard`, `GET /export/scorecard` (writes [`results/scorecard_report.json`](results/scorecard_report.json)), `GET /providers/health` (per session). Rollups in [`src/telemetry.py`](src/telemetry.py).
+
+### UI for judges
+
+- [`server/dashboard.html`](server/dashboard.html): all 7 levels, Frontier stack, **Judge Checklist** block, reward table incl. governance rows, API list incl. scorecard endpoints.
+- [`server/history.html`](server/history.html): scorecard export, link to dashboard checklist, **Judge — Repo Artifacts & Scripts** list.
+
+### Primary vs fallback evidence (framing)
+
+- **Primary stronger run:** [`results/baseline_vs_trained_colab.json`](results/baseline_vs_trained_colab.json) + [`results/reward_curves.png`](results/reward_curves.png).
+- **Deterministic reruns:** `results/final_*`, ablation JSON, scorecard export, judge one-pager + Q&A as above.
+
 After a full curriculum training run (Easy → Medium → Hard) using **GRPO**, the AI Support Envoy achieved massive gains over the base model.
 All final reproducible runs in this repository use **Qwen/Qwen2.5-0.5B-Instruct** as the practical baseline for solo compute.
 
@@ -49,11 +113,12 @@ Use this as a reproducibility fallback; primary judging evidence should come fro
 
 | Task Level | Baseline Mean ± Std | Trained Mean ± Std | Delta |
 | :--- | :---: | :---: | :---: |
-| **Easy** | 0.303 ± 0.047 | 1.170 ± 0.000 | **+285.7%** |
-| **Medium** | -0.219 ± 0.133 | 1.078 ± 0.087 | **+592.4%** |
-| **Hard** | -0.211 ± 0.116 | 0.137 ± 0.076 | **+165.1%** |
+| **Easy** | 0.314 ± 0.089 | 0.981 ± 0.055 | **+212.0%** |
+| **Medium** | -0.954 ± 0.293 | 0.604 ± 0.246 | **+163.3%** |
+| **Hard** | -0.717 ± 0.260 | -0.133 ± 0.327 | **+81.4%** |
+| **Frontier** | -0.616 ± 0.070 | -0.131 ± 0.058 | **+78.8%** |
 
-Anti-hacking ablation (`results/ablation_hack_penalty.json`) shows that removing the over-prioritization penalty increases reward for the spam policy by `+0.96`, confirming that the penalty closes a real reward-hacking loophole.
+Anti-hacking ablation (`results/ablation_hack_penalty.json`) shows that removing the over-prioritization penalty increases reward for the spam policy by `+0.92`, confirming that the penalty closes a real reward-hacking loophole.
 
 ---
 
@@ -86,6 +151,7 @@ The environment scores every action with a dense reward signal, so the agent get
 | `chaos` | Handle ticket storm (8 tickets, dynamic SLAs) | Urgency-weighted, VIP-boosted |
 | `multi_agent_triage` | Triage specialist — categorize and route | Routing accuracy |
 | `multi_agent_resolver` | Resolver specialist — resolve pre-triaged tickets | Resolution quality |
+| `frontier` | Multi-domain, multilingual, high-risk evidence-gated support | Governance-safe autonomy + handoff correctness |
 
 ---
 
@@ -103,6 +169,16 @@ step_cost:    -0.01 per step (efficiency incentive)
 SLA urgency multiplier: 1.5× breached | 1.2× warning | 1.0× ok
 VIP customers: priority escalated one level automatically
 ```
+
+### Frontier Governance Extensions
+- Voice/text ingestion abstraction with code-mixed language detection (`src/voice_stack.py`)
+- Multi-industry fixtures for ecommerce, telecom, healthcare/insurance, and travel (`src/mock_data_fixtures.py`)
+- Six high-risk category detection + evidence-gated policy decisions (`src/policy_rules.py`)
+- Mock tool hub for order/payment/policy/fraud/history/legal/trust-safety workflows (`src/toolhub.py`)
+- Provider-style mock APIs with latency/failure/fallback simulation (`src/mock_api_stack.py`)
+- Telemetry metrics in env state: `safe_handoff`, `unsafe_action_blocked`, `wrongful_autonomy`, `governance_blocks`
+- Evidence-first tool flow with `tool_call` actions (`policy_lookup`, `fraud_screen`, `kyc_verify`, `trust_safety_review`) before final decisions
+- Reliability telemetry for tools: `tool_calls`, `tool_fallbacks`, and scorecard `tool_fallback_rate`
 
 ---
 
@@ -193,7 +269,7 @@ python train.py --task easy --curriculum easy --model sshleifer/tiny-gpt2 --epoc
 python train.py --model sshleifer/tiny-gpt2 --curriculum easy,medium,hard --epochs 1 --samples 12 --batch-size 1
 
 # 3) 3-seed reproducible evaluation
-python evaluate_models.py --offline --tasks easy,medium,hard --episodes 3 --seeds 41,42,43 --output results/final_baseline_vs_trained.md
+python evaluate_models.py --offline --tasks easy,medium,hard,frontier --episodes 3 --seeds 41,42,43 --output results/final_baseline_vs_trained.md
 
 # 4) Anti-hacking ablation
 python ablation_eval.py
@@ -222,10 +298,13 @@ This writes:
 *   **Summary stats**: [results/final_summary_stats.json](results/final_summary_stats.json)
 *   **Ablation**: [results/ablation_hack_penalty.json](results/ablation_hack_penalty.json)
 *   **Comparison plot**: [results/final_reward_comparison.png](results/final_reward_comparison.png)
+*   **Judge one-pager**: [results/judge_scorecard.md](results/judge_scorecard.md)
+*   **Judge Q&A**: [JUDGE_QA.md](JUDGE_QA.md)
 
 ### Notes on Evidence Tracks
 - `results/baseline_vs_trained_colab.json` + `results/reward_curves.png`: prior full run evidence
 - `results/final_*` + ablation files: latest deterministic reproducibility pack for judge reruns
+- `results/scorecard_report.json`: exported production-style SLO/safety/business KPI scorecard
 
 ---
 
@@ -238,11 +317,18 @@ This writes:
 | POST | `/step` | Execute action |
 | GET | `/state` | Current state + reward history |
 | GET | `/metrics` | Aggregated metrics across all sessions |
+| GET | `/scorecard` | SLO + safety + business KPI scorecard |
+| GET | `/export/scorecard` | Persist scorecard to `results/scorecard_report.json` |
+| GET | `/providers/health` | Provider health status (requires `X-Session-Id`) |
 | GET | `/history` | **Run History Dashboard** to view uploaded reward curves and past runs |
 | POST | `/api/runs` | API to save a run with logs and timestamp |
 | GET | `/docs` | Auto-generated API docs (Swagger) |
 
 Sessions are isolated via `X-Session-Id` header.
+
+### Web UI Coverage
+- `server/dashboard.html` now exposes all 7 task levels including `frontier`, plus Frontier Stack, governance-aware reward rows, and reliability endpoint visibility.
+- `server/history.html` now includes quick scorecard export actions and judge-review helper cues.
 
 ```bash
 # Example: run a full episode via curl

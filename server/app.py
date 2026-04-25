@@ -29,6 +29,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from src.customer_support_env import CustomerSupportEnv, Action, KNOWLEDGE_BASE, TicketCategory
 from src.agent import SupportAgent
+from src.telemetry import aggregate_slo_kpi
 
 app = FastAPI(
     title="AI Support Envoy — OpenEnv",
@@ -43,8 +44,9 @@ app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__
 # Session-isolated environments (no global state collision)
 _sessions: Dict[str, CustomerSupportEnv] = {}
 _metrics: Dict[str, list] = {"scores": [], "rewards": [], "tasks": []}
+_episode_telemetry: list = []
 
-VALID_TASK_LEVELS = {"easy", "medium", "hard", "chaos", "multi_agent_triage", "multi_agent_resolver"}
+VALID_TASK_LEVELS = {"easy", "medium", "hard", "chaos", "multi_agent_triage", "multi_agent_resolver", "frontier"}
 
 # ── Request Models ───────────────────────────────────────────
 
@@ -231,8 +233,24 @@ async def step(request: StepRequest, x_session_id: Optional[str] = Header(defaul
         obs, reward, done, info = env.step(action)
 
         if done:
-            _metrics["scores"].append(env.state().get("cumulative_reward", 0))
+            state = env.state()
+            _metrics["scores"].append(state.get("cumulative_reward", 0))
             _metrics["tasks"].append(env.task_level)
+            total_tickets = max(1, int(state.get("total_tickets", 1)))
+            tickets_handled = int(state.get("tickets_handled", 0))
+            telemetry = state.get("telemetry", {})
+            episode_row = {
+                "task_level": env.task_level,
+                "cumulative_reward": float(state.get("cumulative_reward", 0.0)),
+                "resolution_rate": float(tickets_handled / total_tickets),
+                "escalation_rate": float(telemetry.get("safe_handoff", 0)) / total_tickets,
+                "safe_handoff_rate": float(telemetry.get("safe_handoff", 0)) / total_tickets,
+                "blocked_unsafe_action_rate": float(telemetry.get("unsafe_action_blocked", 0)) / total_tickets,
+                "wrongful_autonomy_rate": float(telemetry.get("wrongful_autonomy", 0)) / total_tickets,
+                "tool_calls_per_ticket": float(telemetry.get("tool_calls", 0)) / total_tickets,
+                "tool_fallback_rate": float(telemetry.get("tool_fallbacks", 0)) / max(1, float(telemetry.get("tool_calls", 0))),
+            }
+            _episode_telemetry.append(episode_row)
 
         return {"observation": obs.model_dump() if obs else None,
                 "reward": float(reward), "done": bool(done), "info": info}
@@ -304,11 +322,21 @@ async def demo_episode(task_level: str = "hard", use_llm: bool = False, agent_ty
                 pri = TaskGrader._expected_priority(t)
                 action = Action(action_type="prioritize", value=pri.value,
                                 reasoning=f"Sentiment {t.sentiment:.2f}, VIP={t.is_vip} → {pri.value}")
-            else: # hard, chaos, multi_agent_resolver
+            else: # hard, chaos, multi_agent_resolver, frontier
                 if should_escalate:
                     action = Action(action_type="escalate",
                                     value=f"Escalating: sentiment {t.sentiment:.2f}, category {t.category.value}",
                                     reasoning="High severity — requires senior team")
+                elif task_level == "frontier" and obs.governance_hint in ("block", "human_review_required") and "policy_reference" not in obs.evidence_collected:
+                    action = Action(action_type="tool_call", value="policy_lookup", reasoning="Collect policy evidence")
+                elif task_level == "frontier" and "fraud_risk" in obs.high_risk_flags and "fraud_check_id" not in obs.evidence_collected:
+                    action = Action(action_type="tool_call", value="fraud_screen", reasoning="Collect fraud evidence")
+                elif task_level == "frontier" and "account_takeover" in obs.high_risk_flags and "kyc_verified" not in obs.evidence_collected:
+                    action = Action(action_type="tool_call", value="kyc_verify", reasoning="Collect KYC evidence")
+                elif task_level == "frontier" and "pii_exposure" in obs.high_risk_flags and "pii_redaction_proof" not in obs.evidence_collected:
+                    action = Action(action_type="tool_call", value="trust_safety_review", reasoning="Collect PII safety evidence")
+                elif task_level == "frontier" and obs.governance_hint in ("human_review_required", "legal_hold"):
+                    action = Action(action_type=obs.governance_hint, value="Policy gated handoff", reasoning="Governance gate")
                 else:
                     action = Action(action_type="resolve",
                                     value=f"Apologize for the inconvenience. {kb_steps}. Following up to confirm.",
@@ -355,8 +383,32 @@ async def get_metrics():
         "avg_cumulative_reward": round(sum(scores) / max(1, len(scores)), 4),
         "max_reward": round(max(scores, default=0), 4),
         "active_sessions": len(_sessions),
-        "task_distribution": {t: _metrics["tasks"].count(t) for t in set(_metrics["tasks"])}
+        "task_distribution": {t: _metrics["tasks"].count(t) for t in set(_metrics["tasks"])},
+        "scorecard": aggregate_slo_kpi(_episode_telemetry) if _episode_telemetry else {},
     }
+
+
+@app.get("/scorecard")
+async def scorecard():
+    return aggregate_slo_kpi(_episode_telemetry)
+
+
+@app.get("/export/scorecard")
+async def export_scorecard():
+    scorecard_payload = aggregate_slo_kpi(_episode_telemetry)
+    os.makedirs("results", exist_ok=True)
+    output_path = os.path.join("results", "scorecard_report.json")
+    with open(output_path, "w") as f:
+        json.dump(scorecard_payload, f, indent=2)
+    return {"status": "ok", "output_path": output_path, "scorecard": scorecard_payload}
+
+
+@app.get("/providers/health")
+async def providers_health(x_session_id: Optional[str] = Header(default=None)):
+    env = _sessions.get(x_session_id or "")
+    if env is None:
+        raise HTTPException(400, "No active session.")
+    return env.toolhub.providers_health()
 
 def main():
     import uvicorn

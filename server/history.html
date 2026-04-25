@@ -34,6 +34,10 @@
     .nav{margin-bottom:2rem;text-align:center}
     .nav a{color:#818cf8;text-decoration:none;font-weight:600;font-size:.9rem}
     .nav a:hover{text-decoration:underline}
+    .quick-actions{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.2rem}
+    .quick-btn{background:rgba(99,102,241,0.14);border:1px solid rgba(99,102,241,0.3);color:#c7d2fe;padding:.45rem .8rem;border-radius:.5rem;font-size:.78rem;cursor:pointer}
+    .quick-btn:hover{background:rgba(99,102,241,0.24)}
+    .small-note{font-size:.78rem;color:#94a3b8;text-align:center;margin-bottom:1rem}
   </style>
 </head>
 <body>
@@ -44,6 +48,30 @@
   <div class="hero">
     <div class="badge">EVALUATION METRICS</div>
     <h1>Run History & Logs</h1>
+  </div>
+  <div class="quick-actions">
+    <button class="quick-btn" onclick="exportScorecard()">Export Scorecard</button>
+    <a class="quick-btn" href="/docs" style="text-decoration:none;display:inline-block">Open API Docs</a>
+    <button class="quick-btn" onclick="showJudgePath()">Judge One-Pager Path</button>
+    <a class="quick-btn" href="/#judge-checklist" style="text-decoration:none;display:inline-block">Full Judge Checklist (Dashboard)</a>
+  </div>
+  <div class="small-note" id="scorecard-note">Scorecard export status will appear here.</div>
+
+  <div class="card" style="max-width:1200px;margin:0 auto 1.5rem;padding:1.25rem 1.5rem">
+    <h2 style="margin-bottom:.75rem">Judge — Repo Artifacts &amp; Scripts</h2>
+    <p style="font-size:.85rem;color:#94a3b8;margin-bottom:.75rem;line-height:1.5">Clone the repo to open markdown/JSON. The Space UI cannot serve arbitrary repo files as URLs.</p>
+    <ul style="font-family:monospace;font-size:.78rem;color:#cbd5e1;line-height:1.85;columns:2;column-gap:2rem">
+      <li>results/judge_scorecard.md — one-page evidence</li>
+      <li>JUDGE_QA.md — Q&amp;A for judges</li>
+      <li>results/final_baseline_vs_trained.md + .json</li>
+      <li>results/final_summary_stats.json</li>
+      <li>results/ablation_hack_penalty.json</li>
+      <li>results/scorecard_report.json (after export or CI)</li>
+      <li>results/baseline_vs_trained_colab.json + reward_curves.png</li>
+      <li>evaluate_models.py · ablation_eval.py · train.py</li>
+      <li>src/customer_support_env.py · policy_rules.py · toolhub.py · mock_api_stack.py · voice_stack.py · mock_data_fixtures.py · telemetry.py</li>
+      <li>openenv.yaml — tasks incl. frontier</li>
+    </ul>
   </div>
 
   <div class="grid">
@@ -133,6 +161,23 @@
 
     // Load runs on page load
     loadRuns();
+
+    async function exportScorecard() {
+      const note = document.getElementById('scorecard-note');
+      note.innerText = 'Exporting scorecard...';
+      try {
+        const res = await fetch('/export/scorecard');
+        const data = await res.json();
+        note.innerText = `✅ Scorecard exported: ${data.output_path}`;
+      } catch (e) {
+        note.innerText = `❌ Scorecard export failed: ${e.message}`;
+      }
+    }
+
+    function showJudgePath() {
+      const note = document.getElementById('scorecard-note');
+      note.innerText = 'Judge docs (in repo): results/judge_scorecard.md · JUDGE_QA.md — see card above for full list.';
+    }
   </script>
 </body>
 </html>

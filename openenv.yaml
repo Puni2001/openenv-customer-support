@@ -24,6 +24,9 @@ tasks:
   - name: multi_agent_resolver
     description: Multi-agent pipeline — resolver specialist agent (resolve + escalate)
 
+  - name: frontier
+    description: Frontier ops — multilingual, multi-domain, high-risk evidence-gated support
+
 environment:
   class: src.customer_support_env.CustomerSupportEnv
   init_params:
@@ -48,4 +51,7 @@ reward:
     - sla_compliance
     - vip_awareness
     - escalation_reasoning
+    - governance_compliance
+    - safe_handoff_bonus
+    - evidence_collection_bonus
     - step_cost

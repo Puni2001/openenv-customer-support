@@ -1,23 +1,30 @@
 {
   "easy": {
-    "base_mean": 0.3033333333333333,
-    "base_std": 0.04714045207910313,
-    "trained_mean": 1.17,
-    "trained_std": 0.0,
-    "delta_pct": 285.7142857142858
+    "baseline_mean": 0.3144,
+    "baseline_std": 0.0885,
+    "trained_mean": 0.9811,
+    "trained_std": 0.055,
+    "delta_percent": 212.01
   },
   "medium": {
-    "base_mean": -0.2188888888888889,
-    "base_std": 0.1332314425499875,
-    "trained_mean": 1.0777777777777777,
-    "trained_std": 0.08748897637790908,
-    "delta_pct": 592.3857868020303
+    "baseline_mean": -0.9544,
+    "baseline_std": 0.2926,
+    "trained_mean": 0.6044,
+    "trained_std": 0.2464,
+    "delta_percent": 163.33
   },
   "hard": {
-    "base_mean": -0.21111111111111103,
-    "base_std": 0.11573703697777588,
-    "trained_mean": 0.1374444444444445,
-    "trained_std": 0.0760986510482152,
-    "delta_pct": 165.10526315789477
+    "baseline_mean": -0.7167,
+    "baseline_std": 0.2596,
+    "trained_mean": -0.1331,
+    "trained_std": 0.3271,
+    "delta_percent": 81.43
+  },
+  "frontier": {
+    "baseline_mean": -0.6156,
+    "baseline_std": 0.0698,
+    "trained_mean": -0.1307,
+    "trained_std": 0.0576,
+    "delta_percent": 78.77
   }
 }

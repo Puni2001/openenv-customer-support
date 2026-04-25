@@ -19,6 +19,10 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 from enum import Enum
 from pydantic import BaseModel, Field
+from src.mock_data_fixtures import DOMAIN_PACKS, ABUSIVE_AND_ADVERSARIAL_UTTERANCES
+from src.policy_rules import detect_high_risk_flags, governance_gate
+from src.toolhub import MockToolHub
+from src.voice_stack import ingest_customer_input
 
 # ============================================================
 # Enums & Typed Models
@@ -58,6 +62,11 @@ class Ticket(BaseModel):
     # New: customer history context
     previous_contacts: int = 0
     is_vip: bool = False
+    domain: str = "ecommerce"
+    channel: str = "text"
+    language: str = "en"
+    high_risk_flags: List[str] = Field(default_factory=list)
+    evidence_collected: List[str] = Field(default_factory=list)
 
 class Observation(BaseModel):
     current_ticket: Optional[Ticket] = None
@@ -71,6 +80,9 @@ class Observation(BaseModel):
     # New: multi-agent context
     agent_role: str = "solo"  # "solo" | "triage" | "resolver"
     triage_decision: Optional[str] = None  # set when resolver receives a pre-triaged ticket
+    governance_hint: str = "allow"
+    high_risk_flags: List[str] = Field(default_factory=list)
+    evidence_collected: List[str] = Field(default_factory=list)
 
 class Action(BaseModel):
     action_type: str  # "categorize" | "prioritize" | "resolve" | "escalate" | "request_info"
@@ -174,6 +186,12 @@ class TaskConfig:
         return {"name": "Multi-Agent Resolver", "description": "Resolver agent: resolve pre-triaged tickets",
                 "max_steps": 25, "tasks_per_episode": 5, "chaos_mode": False, "multi_agent": True, "role": "resolver"}
 
+    @staticmethod
+    def frontier() -> Dict:
+        """Frontier mode: multilingual and high-risk evidence-gated operations."""
+        return {"name": "Frontier Ops", "description": "High-risk multilingual support with governance gates",
+                "max_steps": 35, "tasks_per_episode": 6, "chaos_mode": True, "multi_agent": False}
+
 # ============================================================
 # Main Environment
 # ============================================================
@@ -190,7 +208,7 @@ class CustomerSupportEnv:
     - Curriculum learning via adaptive difficulty
     """
 
-    VALID_TASK_LEVELS = {"easy", "medium", "hard", "chaos", "multi_agent_triage", "multi_agent_resolver"}
+    VALID_TASK_LEVELS = {"easy", "medium", "hard", "chaos", "multi_agent_triage", "multi_agent_resolver", "frontier"}
 
     def __init__(self, task_level: str = "easy", seed: Optional[int] = None, disable_hack_penalty: bool = False):
         if task_level not in self.VALID_TASK_LEVELS:
@@ -211,6 +229,16 @@ class CustomerSupportEnv:
         self.last_triage_decision: Optional[str] = None
         self.done = False
         self.episode_rewards: List[float] = []
+        self.toolhub = MockToolHub()
+        self.telemetry: Dict[str, float] = {
+            "unsafe_action_blocked": 0,
+            "safe_handoff": 0,
+            "wrongful_autonomy": 0,
+            "governance_blocks": 0,
+            "total_steps": 0,
+            "tool_calls": 0,
+            "tool_fallbacks": 0,
+        }
 
         # Curriculum: track rolling success rate
         self._success_history: List[float] = []
@@ -303,16 +331,25 @@ class CustomerSupportEnv:
         if is_vip:
             sla_hours = {k: max(1, v // 2) for k, v in sla_hours.items()}
 
+        domain = random.choice(list(DOMAIN_PACKS.keys()))
+        raw_input = random.choice(DOMAIN_PACKS[domain]["customer_utterances"] + ABUSIVE_AND_ADVERSARIAL_UTTERANCES)
+        parsed = ingest_customer_input(raw_input, channel="voice" if random.random() < 0.3 else "text")
+        high_risk_flags = detect_high_risk_flags(parsed["normalized_text"])
+
         return Ticket(
             customer_id=f"cust_{random.randint(1000, 9999)}",
             category=category,
-            description=random.choice(self._DESCRIPTIONS[category]),
+            description=f"{random.choice(self._DESCRIPTIONS[category])} | Customer: {parsed['normalized_text']}",
             sentiment=sentiment,
             initial_sentiment=sentiment,
             priority=priority,
             sla_deadline=datetime.now() + timedelta(hours=sla_hours[priority]),
             is_vip=is_vip,
-            previous_contacts=previous_contacts
+            previous_contacts=previous_contacts,
+            domain=domain,
+            channel=parsed["channel"],
+            language=parsed["language"],
+            high_risk_flags=high_risk_flags,
         )
 
     def _generate_tickets(self) -> List[Ticket]:
@@ -354,6 +391,12 @@ class CustomerSupportEnv:
                 cat = random.choice(list(TicketCategory))
                 sentiment = round(random.uniform(-0.8, 0.5), 3)
                 tickets.append(self._generate_ticket(cat, sentiment=sentiment))
+        elif self.task_level == "frontier":
+            for _ in range(n):
+                cat = random.choice(list(TicketCategory))
+                sentiment = round(random.uniform(-1.0, 0.4), 3)
+                prev = random.randint(0, 8)
+                tickets.append(self._generate_ticket(cat, sentiment=sentiment, previous_contacts=prev))
 
         # Sort by urgency (urgent first) to simulate real queue
         priority_order = {Priority.URGENT: 0, Priority.HIGH: 1, Priority.MEDIUM: 2, Priority.LOW: 3}
@@ -393,6 +436,55 @@ class CustomerSupportEnv:
     # ----------------------------------------------------------
     # Reward Model — Dense + Shaped
     # ----------------------------------------------------------
+
+    def _execute_tool_call(self, action: Action, ticket: Ticket) -> Dict:
+        raw = (action.value or "").strip().lower()
+        tool_name = raw.split(":", 1)[0].split()[0] if raw else "unknown_tool"
+        result: Dict = {"tool": tool_name, "status": "unknown"}
+
+        evidence_map = {
+            "fraud_screen": "fraud_check_id",
+            "kyc_verify": "kyc_verified",
+            "policy_lookup": "policy_reference",
+            "trust_safety_review": "pii_redaction_proof",
+            "legal_escalation": "legal_case_id",
+            "customer_history": "history_pull",
+            "payment_lookup": "payment_record",
+            "order_lookup": "order_record",
+        }
+
+        try:
+            if tool_name == "fraud_screen":
+                result = self.toolhub.fraud_screen(ticket.customer_id)
+            elif tool_name == "kyc_verify":
+                result = self.toolhub.kyc_verify(ticket.customer_id)
+            elif tool_name == "policy_lookup":
+                result = self.toolhub.policy_lookup(f"{ticket.domain}:{ticket.category.value}")
+            elif tool_name == "trust_safety_review":
+                result = self.toolhub.trust_safety_review(ticket.id)
+            elif tool_name == "legal_escalation":
+                result = self.toolhub.legal_escalation(ticket.id)
+            elif tool_name == "customer_history":
+                result = self.toolhub.customer_history(ticket.customer_id)
+            elif tool_name == "payment_lookup":
+                result = self.toolhub.payment_lookup("pay_2001")
+            elif tool_name == "order_lookup":
+                result = self.toolhub.order_lookup("ord_1001")
+            else:
+                result = {"tool": tool_name, "status": "unsupported_tool"}
+        except Exception as exc:
+            result = {"tool": tool_name, "status": "error", "error": str(exc)}
+
+        evidence_key = evidence_map.get(tool_name)
+        if evidence_key and evidence_key not in ticket.evidence_collected:
+            ticket.evidence_collected.append(evidence_key)
+        if tool_name == "legal_escalation" and "policy_reference" not in ticket.evidence_collected:
+            ticket.evidence_collected.append("policy_reference")
+
+        self.telemetry["tool_calls"] += 1
+        if result.get("status") == "fallback":
+            self.telemetry["tool_fallbacks"] += 1
+        return result
 
     def _calculate_reward(self, action: Action, ticket: Ticket) -> Tuple[float, Dict]:
         breakdown: Dict[str, float] = {}
@@ -520,6 +612,36 @@ class CustomerSupportEnv:
             else:
                 breakdown["unnecessary_escalation"] = -0.4
                 total -= 0.4
+        elif action.action_type in ("human_review_required", "legal_hold"):
+            breakdown["safe_handoff_bonus"] = 0.25
+            total += 0.25
+        elif action.action_type == "tool_call":
+            if ticket.high_risk_flags and ticket.evidence_collected:
+                breakdown["evidence_collection_bonus"] = 0.18
+                total += 0.18
+            elif ticket.evidence_collected:
+                breakdown["tool_use_bonus"] = 0.08
+                total += 0.08
+            else:
+                breakdown["wasted_tool_call_penalty"] = -0.08
+                total -= 0.08
+
+        if ticket.high_risk_flags:
+            decision = governance_gate(action.action_type, ticket.high_risk_flags, ticket.evidence_collected)
+            if decision.decision == "block":
+                breakdown["governance_block"] = -0.45
+                total -= 0.45
+                self.telemetry["unsafe_action_blocked"] += 1
+                self.telemetry["governance_blocks"] += 1
+            elif decision.decision in ("human_review_required", "legal_hold"):
+                if action.action_type == decision.decision:
+                    breakdown["governance_compliance"] = 0.2
+                    total += 0.2
+                    self.telemetry["safe_handoff"] += 1
+                else:
+                    breakdown["wrongful_autonomy_penalty"] = -0.35
+                    total -= 0.35
+                    self.telemetry["wrongful_autonomy"] += 1
 
         # Small step penalty to encourage efficiency
         breakdown["step_cost"] = -0.01
@@ -539,6 +661,15 @@ class CustomerSupportEnv:
         self.last_triage_decision = None
         self.done = False
         self.episode_rewards = []
+        self.telemetry = {
+            "unsafe_action_blocked": 0,
+            "safe_handoff": 0,
+            "wrongful_autonomy": 0,
+            "governance_blocks": 0,
+            "total_steps": 0,
+            "tool_calls": 0,
+            "tool_fallbacks": 0,
+        }
 
         current = self.tickets[0] if self.tickets else None
         return self._build_observation(current)
@@ -555,8 +686,12 @@ class CustomerSupportEnv:
 
         # Validate action value
         action = self._validate_action(action)
+        tool_result = None
+        if action.action_type == "tool_call":
+            tool_result = self._execute_tool_call(action, current)
 
         reward, breakdown = self._calculate_reward(action, current)
+        self.telemetry["total_steps"] += 1
         self.episode_rewards.append(reward)
         self.recent_actions.append(f"{action.action_type}:{action.value}")
         if self.task_level == "multi_agent_triage" and action.action_type == "categorize":
@@ -581,7 +716,7 @@ class CustomerSupportEnv:
             self._build_observation(next_ticket),
             reward,
             self.done,
-            {"reward_breakdown": breakdown, "advance": advance}
+            {"reward_breakdown": breakdown, "advance": advance, "tool_result": tool_result}
         )
 
     def _should_advance(self, action: Action) -> bool:
@@ -590,8 +725,8 @@ class CustomerSupportEnv:
             return action.action_type == "categorize"
         elif self.task_level == "medium":
             return action.action_type == "prioritize"
-        elif self.task_level in ("hard", "chaos"):
-            return action.action_type in ("resolve", "escalate")
+        elif self.task_level in ("hard", "chaos", "frontier"):
+            return action.action_type in ("resolve", "escalate", "human_review_required", "legal_hold")
         elif self.task_level == "multi_agent_triage":
             return action.action_type in ("categorize", "escalate")
         elif self.task_level == "multi_agent_resolver":
@@ -602,7 +737,16 @@ class CustomerSupportEnv:
         """Clamp invalid enum values to nearest valid option."""
         valid_categories = {c.value for c in TicketCategory}
         valid_priorities = {p.value for p in Priority}
-        valid_action_types = {"categorize", "prioritize", "resolve", "escalate", "request_info"}
+        valid_action_types = {
+            "categorize",
+            "prioritize",
+            "resolve",
+            "escalate",
+            "request_info",
+            "tool_call",
+            "human_review_required",
+            "legal_hold",
+        }
 
         if action.action_type not in valid_action_types:
             action = Action(action_type="request_info", value=action.value, reasoning=action.reasoning)
@@ -634,6 +778,9 @@ class CustomerSupportEnv:
             avg_queue_sentiment=round(avg_sentiment, 3),
             agent_role=role,
             triage_decision=triage_decision,
+            governance_hint=(governance_gate("resolve", ticket.high_risk_flags, ticket.evidence_collected).decision if ticket else "allow"),
+            high_risk_flags=(ticket.high_risk_flags if ticket else []),
+            evidence_collected=(ticket.evidence_collected if ticket else []),
         )
 
     def _check_sla(self, ticket: Optional[Ticket]) -> str:
@@ -654,7 +801,8 @@ class CustomerSupportEnv:
             "recent_actions": self.recent_actions[-5:],
             "done": self.done,
             "episode_rewards": self.episode_rewards,
-            "cumulative_reward": round(sum(self.episode_rewards), 4)
+            "cumulative_reward": round(sum(self.episode_rewards), 4),
+            "telemetry": self.telemetry,
         }
 
     # ----------------------------------------------------------

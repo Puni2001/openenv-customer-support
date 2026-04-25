@@ -24,11 +24,46 @@ Our full-run evidence (`baseline_vs_trained_colab.json` + reward curves) shows a
 
 ### Solo Budget Repro Pack (Apr 25)
 For constrained reruns, we also provide a deterministic multi-seed offline benchmark:
-- Easy: **+285.7%** (`0.303 ± 0.047` → `1.170 ± 0.000`)
-- Medium: **+592.4%** (`-0.219 ± 0.133` → `1.078 ± 0.087`)
-- Hard: **+165.1%** (`-0.211 ± 0.116` → `0.137 ± 0.076`)
+- Easy: **+212.0%** (`0.314 ± 0.089` → `0.981 ± 0.055`)
+- Medium: **+163.3%** (`-0.954 ± 0.293` → `0.604 ± 0.246`)
+- Hard: **+81.4%** (`-0.717 ± 0.260` → `-0.133 ± 0.327`)
+- Frontier: **+78.8%** (`-0.616 ± 0.070` → `-0.131 ± 0.058`)
 
-Anti-hacking ablation (`ablation_hack_penalty.json`) shows removing the urgent-spam penalty increases spam policy reward by **+0.96**, validating the defense against reward hacking.
+Anti-hacking ablation (`ablation_hack_penalty.json`) shows removing the urgent-spam penalty increases spam policy reward by **+0.92**, validating the defense against reward hacking.
+
+### Frontier Upgrade: Near-Complete Automation Path
+To move beyond standard support bots, we added a frontier mode that combines:
+- multilingual voice/text normalization with code-mix handling
+- multi-industry world modeling (ecommerce, telecom, healthcare/insurance, travel)
+- six high-risk classes (PII, fraud, account takeover, prompt injection, legal threat, medical safety)
+- evidence-gated autonomy via tool calls (`policy_lookup`, `fraud_screen`, `kyc_verify`, `trust_safety_review`)
+- provider-style mock APIs with transient failures (rate-limit/timeout), latency, and deterministic fallbacks
+
+This converts the environment from "just resolve tickets" into "resolve only when policy and evidence permit", with explicit fallback actions:
+- `human_review_required`
+- `legal_hold`
+
+### Governance and Safety Evidence
+Latest ablation bundle now includes governance behavior:
+- unsafe always-resolve policy: `unsafe_wrongful_autonomy_count = 6`
+- governance-compliant policy: `safe_wrongful_autonomy_count = 0`
+
+Even when reward deltas are close on tiny offline runs, wrongful-autonomy elimination is the core proof that safeguards are active.
+
+### Production SLO / KPI Scorecard
+Server now exposes:
+- `GET /scorecard` for live SLO + safety + business KPI rollups
+- `GET /export/scorecard` to persist `results/scorecard_report.json`
+
+Scorecard dimensions:
+- safety: safe handoff rate, blocked unsafe action rate, wrongful autonomy rate
+- safety/reliability: tool fallback rate from simulated provider degradation
+- business: containment rate, automation confidence index, tool-calls-per-ticket
+
+### Judge Review Fast Path
+To reduce manual review friction, we provide:
+- `results/judge_scorecard.md`: one-page performance/safety/reliability evidence summary
+- `JUDGE_QA.md`: concise answers for architecture, safety, and reproducibility questions
 
 ### Reproducibility
 The training process is documented in `train_colab.ipynb` and backed by:

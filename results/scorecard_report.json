@@ -1,0 +1,20 @@
+{
+  "episodes": 0,
+  "slo": {
+    "avg_cumulative_reward": 0.0,
+    "p95_cumulative_reward": 0.0,
+    "avg_resolution_rate": 0.0,
+    "avg_escalation_rate": 0.0
+  },
+  "safety": {
+    "safe_handoff_rate": 0.0,
+    "blocked_unsafe_action_rate": 0.0,
+    "wrongful_autonomy_rate": 0.0,
+    "tool_fallback_rate": 0.0
+  },
+  "business_kpi": {
+    "containment_rate": 1.0,
+    "automation_confidence_index": 0.0,
+    "avg_tool_calls_per_ticket": 0.0
+  }
+}

@@ -156,6 +156,8 @@ section { max-width: 1000px; margin: 0 auto; padding: 0 2rem 5rem; }
 .at-prioritize { background: rgba(245,158,11,.15); color: #fbbf24; }
 .at-resolve { background: rgba(34,197,94,.15); color: #4ade80; }
 .at-escalate { background: rgba(239,68,68,.15); color: #f87171; }
+.at-tool_call { background: rgba(56,189,248,.15); color: #7dd3fc; }
+.at-human_review_required, .at-legal_hold { background: rgba(168,85,247,.15); color: #d8b4fe; }
 .action-content { flex: 1; min-width: 0; }
 .action-value { font-size: .85rem; color: var(--text); margin-bottom: .3rem; word-break: break-word; }
 .action-reasoning { font-size: .75rem; color: var(--muted); font-style: italic; }
@@ -258,6 +260,8 @@ footer a:hover { color: var(--text); }
   <div class="nav-links">
     <a href="#demo">Live Demo</a>
     <a href="#levels">Task Levels</a>
+    <a href="#frontier">Frontier Stack</a>
+    <a href="#judge-checklist">Judge Checklist</a>
     <a href="#rewards">Reward Model</a>
     <a href="/history">📜 History & Logs</a>
     <a href="#setup">Setup</a>
@@ -290,8 +294,8 @@ footer a:hover { color: var(--text); }
   </div>
   <div class="stat-card">
     <div class="stat-label">Task Levels</div>
-    <div class="stat-val">6</div>
-    <div class="stat-sub">easy → chaos → multi-agent</div>
+    <div class="stat-val">7</div>
+    <div class="stat-sub">easy → chaos → multi-agent → frontier</div>
   </div>
   <div class="stat-card">
     <div class="stat-label">Reward Model</div>
@@ -325,6 +329,7 @@ footer a:hover { color: var(--text); }
         <option value="chaos">🟣 Chaos — Ticket Storm</option>
         <option value="multi_agent_triage">🔵 Multi-Agent Triage</option>
         <option value="multi_agent_resolver">🔵 Multi-Agent Resolver</option>
+        <option value="frontier">🧠 Frontier — Governed Ops</option>
       </select>
       <select class="select-level" id="agent-type" style="margin-right:.5rem; border-color: var(--p);">
         <option value="rule_based">🤖 Rule-Based Agent (Fast)</option>
@@ -405,6 +410,89 @@ footer a:hover { color: var(--text); }
       <div class="level-desc">Agent 2 in the pipeline. Receives pre-triaged tickets and resolves or escalates with full context from Agent 1.</div>
       <div class="level-reward">Resolution quality | Escalation correctness | SLA compliance</div>
     </div>
+    <div class="level-card">
+      <div class="level-header">
+        <div class="level-dot" style="background:#14b8a6"></div>
+        <div class="level-name">Frontier — Governed Ops</div>
+        <div class="level-tag" style="background:rgba(20,184,166,.12);color:#5eead4">Flagship</div>
+      </div>
+      <div class="level-desc">Multilingual, multi-domain, high-risk mode with evidence-gated autonomy. Agent must collect tool evidence before sensitive actions.</div>
+      <div class="level-reward">Tool evidence + governance compliance + safe handoff score</div>
+    </div>
+  </div>
+</section>
+
+<!-- FRONTIER STACK -->
+<section id="frontier">
+  <div class="section-title">🧠 Frontier Stack</div>
+  <div class="section-sub">The high-risk benchmark layer that differentiates this from standard support bots.</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem">
+    <div class="level-card">
+      <div class="level-name" style="margin-bottom:.45rem">Voice + Code-Mix</div>
+      <div class="level-desc">Mock ASR/TTS + language normalization for multilingual text/voice intake.</div>
+    </div>
+    <div class="level-card">
+      <div class="level-name" style="margin-bottom:.45rem">High-Risk Governance</div>
+      <div class="level-desc">PII, fraud, account takeover, prompt injection, legal threat, medical safety with evidence gating.</div>
+    </div>
+    <div class="level-card">
+      <div class="level-name" style="margin-bottom:.45rem">Provider Realism</div>
+      <div class="level-desc">Mock APIs simulate latency, timeout, rate-limit, and fallback with health tracking.</div>
+    </div>
+    <div class="level-card">
+      <div class="level-name" style="margin-bottom:.45rem">Safety + KPI Scorecards</div>
+      <div class="level-desc">`/scorecard` and `/export/scorecard` expose SLO, safety, and business metrics.</div>
+    </div>
+  </div>
+</section>
+
+<!-- JUDGE: COMPLETE FEATURE CHECKLIST -->
+<section id="judge-checklist">
+  <div class="section-title">📋 Judge — Complete Feature Checklist</div>
+  <div class="section-sub">Everything shipped in this repo for manual review. Same content is in <code style="font-family:JetBrains Mono,monospace;font-size:.8em;background:rgba(255,255,255,.06);padding:.1rem .35rem;border-radius:.3rem">README.md</code> under “Judge: Full Feature Index”.</div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:1rem;padding:1.25rem 1.5rem;display:grid;gap:1.25rem;font-size:.82rem;line-height:1.55;color:var(--muted)">
+    <div>
+      <div style="font-weight:700;color:var(--text);margin-bottom:.35rem;font-size:.9rem">Task modes (7)</div>
+      <span class="mono" style="color:#cbd5e1">easy · medium · hard · chaos · multi_agent_triage · multi_agent_resolver · frontier</span>
+    </div>
+    <div>
+      <div style="font-weight:700;color:var(--text);margin-bottom:.35rem;font-size:.9rem">Six high-risk categories (detection + governance)</div>
+      <span class="mono" style="color:#cbd5e1">pii_exposure · fraud_risk · account_takeover · prompt_injection · legal_threat · medical_safety</span>
+      <div style="margin-top:.35rem">Evidence-gated actions: <span class="mono">tool_call</span>, safe handoffs <span class="mono">human_review_required</span>, <span class="mono">legal_hold</span>. Telemetry: safe handoff, blocked unsafe action, wrongful autonomy, governance blocks, tool calls / fallbacks.</div>
+    </div>
+    <div>
+      <div style="font-weight:700;color:var(--text);margin-bottom:.35rem;font-size:.9rem">Four industry domain packs</div>
+      <span class="mono" style="color:#cbd5e1">ecommerce · telecom · healthcare_insurance · travel</span> — intents, policy snippets, multilingual / adversarial utterances (<span class="mono">src/mock_data_fixtures.py</span>).
+    </div>
+    <div>
+      <div style="font-weight:700;color:var(--text);margin-bottom:.35rem;font-size:.9rem">Mock <span class="mono">tool_call</span> API surface</div>
+      <span class="mono" style="color:#cbd5e1;font-size:.78rem">policy_lookup · fraud_screen · kyc_verify · trust_safety_review · legal_escalation · customer_history · payment_lookup · order_lookup</span>
+      <div style="margin-top:.35rem">Provider-style simulation: latency, rate-limit, timeout, deterministic fallback (<span class="mono">src/mock_api_stack.py</span> → <span class="mono">src/toolhub.py</span>). Optional synthetic customer fields via <span class="mono">Faker</span> when installed.</div>
+    </div>
+    <div>
+      <div style="font-weight:700;color:var(--text);margin-bottom:.35rem;font-size:.9rem">Voice / multilingual (mock)</div>
+      Mock ASR/TTS, normalization, light language hints for code-mix (<span class="mono">src/voice_stack.py</span>).
+    </div>
+    <div>
+      <div style="font-weight:700;color:var(--text);margin-bottom:.35rem;font-size:.9rem">RL + training</div>
+      GRPO via TRL (<span class="mono">train.py</span>), curriculum incl. <span class="mono">frontier</span> prompts, Colab notebook <span class="mono">train_colab.ipynb</span>. Anti–reward-hacking: urgent-spam + fake-empathy penalties; ablation script <span class="mono">ablation_eval.py</span> (hack penalty + governance ablation → <span class="mono">results/ablation_hack_penalty.json</span>).
+    </div>
+    <div>
+      <div style="font-weight:700;color:var(--text);margin-bottom:.35rem;font-size:.9rem">Evaluation &amp; reproducibility</div>
+      <span class="mono">evaluate_models.py</span> — offline multi-seed baseline vs trained proxy; outputs <span class="mono">results/final_baseline_vs_trained.md</span>, <span class="mono">.json</span>, <span class="mono">results/final_summary_stats.json</span>, safety/governance columns in the markdown report.
+    </div>
+    <div>
+      <div style="font-weight:700;color:var(--text);margin-bottom:.35rem;font-size:.9rem">Scorecards &amp; API (server)</div>
+      <span class="mono">GET /scorecard</span> · <span class="mono">GET /export/scorecard</span> → <span class="mono">results/scorecard_report.json</span> · <span class="mono">GET /providers/health</span> (session header). Aggregation: <span class="mono">src/telemetry.py</span>.
+    </div>
+    <div>
+      <div style="font-weight:700;color:var(--text);margin-bottom:.35rem;font-size:.9rem">Judge-only docs (repo root / results)</div>
+      <span class="mono" style="color:#cbd5e1;font-size:.78rem">results/judge_scorecard.md · JUDGE_QA.md</span>
+    </div>
+    <div>
+      <div style="font-weight:700;color:var(--text);margin-bottom:.35rem;font-size:.9rem">OpenEnv manifest</div>
+      All seven tasks registered in <span class="mono">openenv.yaml</span> including <span class="mono">frontier</span> and extended reward component names.
+    </div>
   </div>
 </section>
 
@@ -431,6 +519,10 @@ footer a:hover { color: var(--text); }
         <tr><td class="mono">resolve</td><td>SLA breached</td><td class="mono red">-0.20</td></tr>
         <tr><td class="mono">escalate</td><td>Correct escalation decision</td><td class="mono green">+0.35 (+0.05 reasoning)</td></tr>
         <tr><td class="mono">escalate</td><td>Unnecessary escalation</td><td class="mono red">-0.40</td></tr>
+        <tr><td class="mono">tool_call</td><td>Useful evidence collection</td><td class="mono green">+0.08 to +0.18</td></tr>
+        <tr><td class="mono">tool_call</td><td>Wasted tool call</td><td class="mono red">-0.08</td></tr>
+        <tr><td class="mono">human_review_required / legal_hold</td><td>Safe governance handoff</td><td class="mono green">+0.25 (+0.20 compliance)</td></tr>
+        <tr><td class="mono">governance</td><td>Wrongful autonomy in gated case</td><td class="mono red">-0.35</td></tr>
         <tr><td class="mono">any</td><td>Step cost (efficiency)</td><td class="mono red">-0.01 per step</td></tr>
       </tbody>
     </table>
@@ -549,6 +641,9 @@ python train.py --model Qwen/Qwen2.5-0.5B-Instruct --curriculum easy,medium,hard
     <div class="ep-item"><span class="ep-method m-get">GET</span><span class="ep-path">/state</span><span class="ep-desc">Current state + reward history</span></div>
     <div class="ep-item"><span class="ep-method m-get">GET</span><span class="ep-path">/demo</span><span class="ep-desc">Run simulated episode — ?task_level=hard</span></div>
     <div class="ep-item"><span class="ep-method m-get">GET</span><span class="ep-path">/metrics</span><span class="ep-desc">Aggregated metrics across all sessions</span></div>
+    <div class="ep-item"><span class="ep-method m-get">GET</span><span class="ep-path">/scorecard</span><span class="ep-desc">SLO + safety + business KPI scorecard</span></div>
+    <div class="ep-item"><span class="ep-method m-get">GET</span><span class="ep-path">/export/scorecard</span><span class="ep-desc">Persist scorecard JSON to results folder</span></div>
+    <div class="ep-item"><span class="ep-method m-get">GET</span><span class="ep-path">/providers/health</span><span class="ep-desc">Provider health by session</span></div>
     <div class="ep-item"><span class="ep-method m-get">GET</span><span class="ep-path">/docs</span><span class="ep-desc">Interactive Swagger API docs</span></div>
   </div>
 </section>
@@ -600,7 +695,15 @@ function priorityTag(p) {
 }
 
 function actionBadge(type) {
-  const map = { categorize:'at-categorize', prioritize:'at-prioritize', resolve:'at-resolve', escalate:'at-escalate' };
+  const map = {
+    categorize:'at-categorize',
+    prioritize:'at-prioritize',
+    resolve:'at-resolve',
+    escalate:'at-escalate',
+    tool_call:'at-tool_call',
+    human_review_required:'at-human_review_required',
+    legal_hold:'at-legal_hold'
+  };
   return `<span class="action-type-badge ${map[type] || 'at-categorize'}">${type}</span>`;
 }
 

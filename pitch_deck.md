@@ -134,12 +134,42 @@ The judges will love seeing that your OpenEnv gym isn't just for SaaS customer s
 
 Use these in the final 2-minute demo when judges ask for low-cost rerunnable evidence:
 
-- Easy: `0.303 ± 0.047` -> `1.170 ± 0.000` (**+285.7%**)
-- Medium: `-0.219 ± 0.133` -> `1.078 ± 0.087` (**+592.4%**)
-- Hard: `-0.211 ± 0.116` -> `0.137 ± 0.076` (**+165.1%**)
+- Easy: `0.314 ± 0.089` -> `0.981 ± 0.055` (**+212.0%**)
+- Medium: `-0.954 ± 0.293` -> `0.604 ± 0.246` (**+163.3%**)
+- Hard: `-0.717 ± 0.260` -> `-0.133 ± 0.327` (**+81.4%**)
+- Frontier: `-0.616 ± 0.070` -> `-0.131 ± 0.058` (**+78.8%**)
 
-Anti-hacking ablation (urgent-spam penalty removed) gives spam policy `+0.96` higher reward, proving the penalty is necessary to prevent reward gaming.
+Anti-hacking ablation (urgent-spam penalty removed) gives spam policy `+0.92` higher reward, proving the penalty is necessary to prevent reward gaming.
+
+Frontier governance ablation (new):
+- Unsafe always-resolve policy: `unsafe_wrongful_autonomy_count = 6`
+- Governance-compliant policy: `safe_wrongful_autonomy_count = 0`
+- Key takeaway: safeguards eliminate wrongful autonomy in high-risk scenarios.
 
 Note for Q&A:
 - Primary full-run evidence is shown via `baseline_vs_trained_colab.json` and reward curves.
 - The numbers in this section are the deterministic reproducibility fallback pack (`results/final_*`).
+
+---
+
+## 7. Frontier Ops Add-On (Judge Differentiator)
+
+Use this section when judges ask "How is this different from a normal support bot?":
+
+- **Multilingual Voice + Text Ingestion**: mock ASR/TTS and code-mixed language normalization.
+- **Four Industry Packs**: ecommerce, telecom, healthcare/insurance, travel.
+- **Six High-Risk Classes**: PII, fraud, account takeover, prompt injection, legal threat, medical safety.
+- **Evidence-Gated Actions**: agent must collect evidence via mock tools (`policy_lookup`, `fraud_screen`, `kyc_verify`, `trust_safety_review`) before autonomy.
+- **Provider Realism Layer**: mock APIs simulate timeout/rate-limit behavior with explicit fallback payloads, then expose provider health metrics.
+- **Governed Fallbacks**: `human_review_required` and `legal_hold` are first-class actions in the RL loop.
+- **Production Scorecards**: `/scorecard` + exported `results/scorecard_report.json` for SLO/safety/business KPIs.
+
+---
+
+## 8. Manual Judge Evaluation Shortcut
+
+If judges have limited time, point them to:
+- `results/judge_scorecard.md` (single-page evidence)
+- `JUDGE_QA.md` (rapid technical clarifications)
+
+This ensures the strongest evidence is visible in under two minutes.
