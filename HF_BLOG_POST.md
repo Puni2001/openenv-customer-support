@@ -1,4 +1,5 @@
-# AI Support Envoy: Mastering Customer Operations with GRPO and Curriculum Learning
+# AI Support Envoy: Mastering Customer Operations with GRPO
+**🎥 Watch the Demo:** [YouTube Video Link](https://youtu.be/BQKfDsODfFk)
 
 ### 🚀 The Mission
 Customer support is often the bottleneck of scaling businesses. Static RAG-based bots fail to take actions, while rule-based systems are too rigid. The **AI Support Envoy** is a next-generation agent trained in a high-fidelity **OpenEnv** environment using **Group Relative Policy Optimization (GRPO)** to master the three pillars of support: Triage, Prioritization, and Resolution.

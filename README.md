@@ -10,6 +10,8 @@ pinned: false
 # 🎧 AI Support Envoy
 
 > **📖 Technical Blog & Report:** [Read our full Grand Finale Submission Report on Hugging Face](https://huggingface.co/spaces/punith2001/openenv-customer-support/discussions/1)
+>
+> **🎥 Demo Video:** [Watch the AI Support Envoy in Action](https://youtu.be/BQKfDsODfFk)
 
 An OpenEnv-compliant RL environment for training AI agents on enterprise customer support workflows.
 
