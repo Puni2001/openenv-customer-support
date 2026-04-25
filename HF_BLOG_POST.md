@@ -1,5 +1,6 @@
 # FrontierOps Arena: Mastering Enterprise Operations with GRPO
 **🎥 Watch the Demo:** [YouTube Video Link](https://youtu.be/BQKfDsODfFk)
+**📝 Live Report Discussion:** [Hugging Face Space Discussion #2](https://huggingface.co/spaces/punith2001/frontierops-arena/discussions/2)
 
 ### Judge TL;DR
 **FrontierOps Arena is an evidence-gated RL operations benchmark**: agents must optimize outcomes under SLA pressure while respecting governance and degraded-tool constraints.

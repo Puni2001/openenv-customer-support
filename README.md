@@ -12,7 +12,7 @@ pinned: false
 **An OpenEnv benchmark for training policy-aware, tool-using enterprise agents under partial observability, delayed rewards, and safety constraints.**
 
 **Live assets**
-- Technical blog/report: [Grand Finale Submission Report](https://huggingface.co/spaces/punith2001/frontierops-arena/discussions/1)
+- Technical blog/report: [Grand Finale Submission Report](https://huggingface.co/spaces/punith2001/frontierops-arena/discussions/2)
 - Demo video: [YouTube demo](https://youtu.be/BQKfDsODfFk)
 - Hugging Face Space: [frontierops-arena](https://huggingface.co/spaces/punith2001/frontierops-arena)
 
