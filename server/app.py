@@ -65,6 +65,49 @@ class RunUploadRequest(BaseModel):
     log: str
     image_base64: str = ""
 
+
+def _persist_run(title: str, log: str, image_bytes: Optional[bytes] = None) -> str:
+    timestamp = int(time.time())
+    run_id = f"run_{timestamp}_{uuid.uuid4().hex[:6]}"
+    run_dir = os.path.join(os.path.dirname(__file__), "static", "runs", run_id)
+    os.makedirs(run_dir, exist_ok=True)
+
+    img_path = ""
+    if image_bytes:
+        img_filename = "reward_curve.png"
+        with open(os.path.join(run_dir, img_filename), "wb") as f:
+            f.write(image_bytes)
+        img_path = f"/static/runs/{run_id}/{img_filename}"
+
+    meta = {
+        "id": run_id,
+        "title": title,
+        "log": log,
+        "timestamp": timestamp,
+        "image_path": img_path
+    }
+    with open(os.path.join(run_dir, "meta.json"), "w") as f:
+        json.dump(meta, f)
+    return run_id
+
+
+def _format_episode_log(task_level: str, source: str, cumulative_reward: float, state: Dict[str, Any]) -> str:
+    telemetry = state.get("telemetry", {}) or {}
+    lines = [
+        f"[AUTO] source={source}",
+        f"[AUTO] task_level={task_level}",
+        f"[AUTO] tickets_handled={state.get('tickets_handled', 0)} / total_tickets={state.get('total_tickets', 0)}",
+        f"[AUTO] steps={state.get('steps', 0)}",
+        f"[AUTO] cumulative_reward={cumulative_reward:.4f}",
+        f"[AUTO] safe_handoff={telemetry.get('safe_handoff', 0)}",
+        f"[AUTO] unsafe_action_blocked={telemetry.get('unsafe_action_blocked', 0)}",
+        f"[AUTO] wrongful_autonomy={telemetry.get('wrongful_autonomy', 0)}",
+        f"[AUTO] governance_blocks={telemetry.get('governance_blocks', 0)}",
+        f"[AUTO] tool_calls={telemetry.get('tool_calls', 0)}",
+        f"[AUTO] tool_fallbacks={telemetry.get('tool_fallbacks', 0)}",
+    ]
+    return "\n".join(lines)
+
 # ── Dashboard ────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
@@ -92,36 +135,18 @@ async def health():
 
 @app.post("/api/runs")
 async def save_run(request: RunUploadRequest):
-    timestamp = int(time.time())
-    run_id = f"run_{timestamp}_{uuid.uuid4().hex[:6]}"
-    run_dir = os.path.join(os.path.dirname(__file__), "static", "runs", run_id)
-    os.makedirs(run_dir, exist_ok=True)
-    
-    img_path = ""
+    image_bytes = None
     if request.image_base64:
         try:
             if "," in request.image_base64:
-                header, encoded = request.image_base64.split(",", 1)
+                _, encoded = request.image_base64.split(",", 1)
             else:
                 encoded = request.image_base64
-            data = base64.b64decode(encoded, validate=True)
-            img_filename = "reward_curve.png"
-            with open(os.path.join(run_dir, img_filename), "wb") as f:
-                f.write(data)
-            img_path = f"/static/runs/{run_id}/{img_filename}"
+            image_bytes = base64.b64decode(encoded, validate=True)
         except Exception as e:
             print(f"Error decoding image: {e}")
-            
-    meta = {
-        "id": run_id,
-        "title": request.title,
-        "log": request.log,
-        "timestamp": timestamp,
-        "image_path": img_path
-    }
-    with open(os.path.join(run_dir, "meta.json"), "w") as f:
-        json.dump(meta, f)
-        
+
+    run_id = _persist_run(request.title, request.log, image_bytes=image_bytes)
     return {"status": "ok", "run_id": run_id}
 
 @app.get("/api/runs")
@@ -196,6 +221,14 @@ async def step(request: StepRequest, x_session_id: Optional[str] = Header(defaul
                 "tool_fallback_rate": float(telemetry.get("tool_fallbacks", 0)) / max(1, float(telemetry.get("tool_calls", 0))),
             }
             _episode_telemetry.append(episode_row)
+            auto_title = f"Auto API Episode · {env.task_level} · {session_id[:8]}"
+            auto_log = _format_episode_log(
+                task_level=env.task_level,
+                source="api_step",
+                cumulative_reward=float(state.get("cumulative_reward", 0.0)),
+                state=state,
+            )
+            _persist_run(auto_title, auto_log)
 
         return {"observation": obs.model_dump() if obs else None,
                 "reward": float(reward), "done": bool(done), "info": info}
@@ -355,6 +388,14 @@ async def demo_episode(task_level: str = "hard", use_llm: bool = False, agent_ty
         "tool_calls_per_ticket": float(telemetry.get("tool_calls", 0)) / total_tickets,
         "tool_fallback_rate": float(telemetry.get("tool_fallbacks", 0)) / max(1, float(telemetry.get("tool_calls", 0))),
     })
+    auto_title = f"Auto Demo Episode · {task_level} · {agent_type}"
+    auto_log = _format_episode_log(
+        task_level=task_level,
+        source="demo",
+        cumulative_reward=cumulative_reward,
+        state=state,
+    )
+    _persist_run(auto_title, auto_log)
 
     return {
         "task_level": task_level,
