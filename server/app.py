@@ -23,6 +23,7 @@ import json
 import glob
 import base64
 import random
+import shutil
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -136,6 +137,19 @@ async def list_runs():
             print(f"[WARN] Skipping invalid run metadata file {m}: {exc}")
     runs.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
     return runs
+
+
+@app.delete("/api/runs")
+async def clear_runs():
+    runs_dir = os.path.join(os.path.dirname(__file__), "static", "runs")
+    removed = 0
+    if os.path.isdir(runs_dir):
+        for entry in os.listdir(runs_dir):
+            entry_path = os.path.join(runs_dir, entry)
+            if os.path.isdir(entry_path):
+                shutil.rmtree(entry_path, ignore_errors=True)
+                removed += 1
+    return {"status": "ok", "removed_runs": removed}
 
 @app.post("/reset")
 async def reset(request: ResetRequest, x_session_id: Optional[str] = Header(default=None)):
@@ -321,6 +335,26 @@ async def demo_episode(task_level: str = "hard", use_llm: bool = False, agent_ty
             "done": done,
         })
         obs = obs_next
+
+    # Include demo episodes in aggregate metrics so dashboard reflects usage.
+    state = env.state()
+    cumulative_reward = float(state.get("cumulative_reward", 0.0))
+    _metrics["scores"].append(cumulative_reward)
+    _metrics["tasks"].append(task_level)
+    total_tickets = max(1, int(state.get("total_tickets", len(env.tickets) or 1)))
+    tickets_handled = int(state.get("tickets_handled", 0))
+    telemetry = state.get("telemetry", {})
+    _episode_telemetry.append({
+        "task_level": task_level,
+        "cumulative_reward": cumulative_reward,
+        "resolution_rate": float(tickets_handled / total_tickets),
+        "escalation_rate": float(telemetry.get("safe_handoff", 0)) / total_tickets,
+        "safe_handoff_rate": float(telemetry.get("safe_handoff", 0)) / total_tickets,
+        "blocked_unsafe_action_rate": float(telemetry.get("unsafe_action_blocked", 0)) / total_tickets,
+        "wrongful_autonomy_rate": float(telemetry.get("wrongful_autonomy", 0)) / total_tickets,
+        "tool_calls_per_ticket": float(telemetry.get("tool_calls", 0)) / total_tickets,
+        "tool_fallback_rate": float(telemetry.get("tool_fallbacks", 0)) / max(1, float(telemetry.get("tool_calls", 0))),
+    })
 
     return {
         "task_level": task_level,

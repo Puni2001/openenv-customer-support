@@ -62,6 +62,7 @@
   </div>
   <div class="quick-actions">
     <button class="quick-btn" onclick="exportScorecard()">Export Scorecard</button>
+    <button class="quick-btn" onclick="clearRunHistory()">Clear Saved History</button>
     <a class="quick-btn" href="/docs" style="text-decoration:none;display:inline-block">Open API Docs</a>
     <button class="quick-btn" onclick="showJudgePath()">Judge One-Pager Path</button>
     <a class="quick-btn" href="/#judge-checklist" style="text-decoration:none;display:inline-block">Full Judge Checklist (Dashboard)</a>
@@ -200,6 +201,21 @@
       btn.disabled = false;
       
       await loadRuns();
+    }
+
+    async function clearRunHistory() {
+      const ok = window.confirm('Clear all saved runs from History & Logs? This keeps titles/branding and only removes stored run entries.');
+      if (!ok) return;
+      const note = document.getElementById('scorecard-note');
+      note.innerText = 'Clearing saved run history...';
+      try {
+        const res = await fetch('/api/runs', { method: 'DELETE' });
+        const data = await res.json();
+        note.innerText = `✅ Cleared ${data.removed_runs || 0} saved run(s).`;
+        await loadRuns();
+      } catch (e) {
+        note.innerText = `❌ Failed to clear history: ${e.message}`;
+      }
     }
 
     // Load runs on page load
